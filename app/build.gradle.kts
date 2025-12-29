@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     // KSP 플러그인 (버전 정보 없이 id만 적습니다)
     id("com.google.devtools.ksp")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -31,10 +32,10 @@ android {
             )
         }
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
+    //compileOptions {
+        //sourceCompatibility = JavaVersion.VERSION_1_8
+        //targetCompatibility = JavaVersion.VERSION_1_8
+    //}
     kotlinOptions {
         jvmTarget = "1.8"
     }
@@ -76,4 +77,5 @@ dependencies {
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
     ksp("androidx.room:room-compiler:$room_version")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.excuseencyclopedia.ExcuseApplication
 import com.example.excuseencyclopedia.ui.home.HomeViewModel
+import com.example.excuseencyclopedia.ui.item.ItemEntryViewModel
 
 // 뷰모델을 만들어주는 공장 객체.
 object AppViewModelProvider {
@@ -20,6 +21,9 @@ object AppViewModelProvider {
         }
 
         // 나중에 다른 뷰모델도 여기에 추가
+        initializer {
+            ItemEntryViewModel(excuseApplication().repository)
+        }
     }
 }
 

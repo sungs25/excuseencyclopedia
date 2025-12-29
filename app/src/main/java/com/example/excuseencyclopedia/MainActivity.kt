@@ -26,8 +26,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // 여기에 방금 만든 HomeScreen을 넣습니다!
-                    HomeScreen()
+                    ExcuseApp()
                 }
             }
         }

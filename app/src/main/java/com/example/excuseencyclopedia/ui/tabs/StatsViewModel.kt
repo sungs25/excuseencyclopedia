@@ -3,48 +3,78 @@ package com.example.excuseencyclopedia.ui.tabs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.excuseencyclopedia.data.ExcuseRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 data class StatsUiState(
-    val totalCount: Int = 0,
-    val averageScore: Double = 0.0,
-    val topCategory: String = "데이터 없음",
-    val topCategoryCount: Int = 0
+    val selectedDate: LocalDate = LocalDate.now(),
+    // 월간 통계
+    val monthlyCount: Int = 0,
+    val monthlyAverage: Double = 0.0,
+    val monthlyTopCategory: String = "없음",
+    // 전체 통계
+    val totalCount: Int = 0
 )
 
-class StatsViewModel(repository: ExcuseRepository) : ViewModel() {
+class StatsViewModel(private val repository: ExcuseRepository) : ViewModel() {
 
-    val uiState: StateFlow<StatsUiState> = repository.getAllExcusesStream()
-        .map { list ->
-            if (list.isEmpty()) {
-                StatsUiState() // 데이터 없으면 기본값(0) 반환
-            } else {
-                // 1. 총 개수
-                val total = list.size
+    // 사용자가 선택한 날짜 (월 단위 이동용)
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
 
-                // 2. 평균 점수 (소수점 첫째 자리까지만 반올림은 UI에서 처리)
-                val avg = list.map { it.score }.average()
+    val uiState: StateFlow<StatsUiState> = combine(
+        repository.getAllExcusesStream(),
+        _selectedDate
+    ) { excuseList, selectedDate ->
 
-                // 3. 최다 카테고리 찾기 (코틀린의 강력한 기능!)
-                // 리스트 -> 카테고리별로 묶기 -> 개수 세기 -> 제일 큰 놈 찾기
-                val topCat = list.groupingBy { it.category }
-                    .eachCount()
-                    .maxByOrNull { it.value }
+        // 1. 전체 개수
+        val total = excuseList.size
 
-                StatsUiState(
-                    totalCount = total,
-                    averageScore = avg,
-                    topCategory = topCat?.key ?: "없음",
-                    topCategoryCount = topCat?.value ?: 0
-                )
-            }
+        // 2. 이번 달 데이터 필터링
+        // 예: "2024-12" 로 시작하는 날짜만 찾음
+        val currentMonthStr = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM"))
+        val monthlyList = excuseList.filter { it.date.startsWith(currentMonthStr) }
+
+        // 3. 월간 통계 계산
+        if (monthlyList.isEmpty()) {
+            StatsUiState(
+                selectedDate = selectedDate,
+                monthlyCount = 0,
+                monthlyAverage = 0.0,
+                monthlyTopCategory = "기록 없음",
+                totalCount = total
+            )
+        } else {
+            // 평균 점수
+            val avg = monthlyList.map { it.score }.average()
+
+            // 최다 카테고리
+            val topCat = monthlyList.groupingBy { it.category }
+                .eachCount()
+                .maxByOrNull { it.value }
+                ?.key ?: "없음"
+
+            StatsUiState(
+                selectedDate = selectedDate,
+                monthlyCount = monthlyList.size,
+                monthlyAverage = avg,
+                monthlyTopCategory = topCat,
+                totalCount = total
+            )
         }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000L),
             initialValue = StatsUiState()
         )
+
+    // 달 변경 함수
+    fun updateDate(newDate: LocalDate) {
+        _selectedDate.value = newDate
+    }
 }

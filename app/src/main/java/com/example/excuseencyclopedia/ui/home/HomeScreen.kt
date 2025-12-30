@@ -5,10 +5,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +32,7 @@ fun HomeScreen(
 ) {
     // 뷰모델의 데이터를 실시간으로 관찰합니다. (데이터가 바뀌면 화면도 다시 그려짐)
     val homeUiState by viewModel.homeUiState.collectAsState()
+    var excuseToDelete by remember { mutableStateOf<Excuse?>(null) }
 
     Scaffold(
         // 1. 상단 바 (Top Bar)
@@ -52,7 +57,30 @@ fun HomeScreen(
         // 3. 실제 내용물 (리스트)
         HomeBody(
             excuseList = homeUiState.excuseList,
+            onDeleteClick = { excuse -> excuseToDelete = excuse },
             modifier = modifier.padding(innerPadding)
+        )
+    }
+
+    if (excuseToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { excuseToDelete = null }, // 팝업 바깥 누르면 닫기
+            title = { Text("변명 삭제") },
+            text = { Text("정말 이 변명을 삭제하시겠습니까?\n(삭제하면 복구할 수 없습니다.)") },
+            confirmButton = {
+                TextButton(onClick = {
+                    // 확인 누르면 실제 삭제 수행
+                    viewModel.deleteExcuse(excuseToDelete!!)
+                    excuseToDelete = null // 팝업 닫기
+                }) {
+                    Text("삭제", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { excuseToDelete = null }) {
+                    Text("취소")
+                }
+            }
         )
     }
 }
@@ -60,6 +88,7 @@ fun HomeScreen(
 @Composable
 fun HomeBody(
     excuseList: List<Excuse>,
+    onDeleteClick: (Excuse) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (excuseList.isEmpty()) {
@@ -80,14 +109,21 @@ fun HomeBody(
             verticalArrangement = Arrangement.spacedBy(10.dp) // 아이템 간 간격
         ) {
             items(excuseList, key = { it.id }) { excuse ->
-                ExcuseItem(excuse = excuse)
+                ExcuseItem(
+                    excuse = excuse,
+                    onDeleteClick = onDeleteClick
+                )
             }
         }
     }
 }
 
 @Composable
-fun ExcuseItem(excuse: Excuse, modifier: Modifier = Modifier) {
+fun ExcuseItem(
+    excuse: Excuse,
+    onDeleteClick: (Excuse) -> Unit,
+    modifier: Modifier = Modifier
+) {
     // 각각의 변명 카드 디자인
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -98,18 +134,29 @@ fun ExcuseItem(excuse: Excuse, modifier: Modifier = Modifier) {
             // 1. 날짜와 카테고리
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = excuse.date,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Text(
-                    text = "#${excuse.category}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
+                Column {
+                    Text(
+                        text = excuse.date,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Text(
+                        text = "#${excuse.category}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+
+                IconButton(onClick = { onDeleteClick(excuse) }) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "삭제",
+                        tint = Color.Gray // 너무 튀지 않게 회색으로
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
 

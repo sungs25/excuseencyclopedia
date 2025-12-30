@@ -12,10 +12,11 @@ import java.util.Locale
 
 // 1. 화면에 입력된 데이터를 담는 그릇 (State)
 data class ItemUiState(
+    val date: String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()), // <-- 추가됨!
     val task: String = "",
     val reason: String = "",
-    val category: String = "기타", // 기본값
-    val score: Float = 3f,       // 슬라이더용 점수 (기본 3점)
+    val category: String = "기타",
+    val score: Float = 3f,
     val isEntryValid: Boolean = false
 )
 
@@ -23,7 +24,7 @@ data class ItemUiState(
 fun ItemUiState.toExcuse(): Excuse {
     val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     return Excuse(
-        date = currentDate,
+        date = date,
         task = task,
         reason = reason,
         category = category,

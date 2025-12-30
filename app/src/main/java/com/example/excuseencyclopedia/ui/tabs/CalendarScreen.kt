@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,25 +28,30 @@ import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
+import kotlinx.coroutines.launch
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-// ▼▼▼ [수정 1] daysOfWeek 함수가 없어서 에러 났을 겁니다. 직접 추가해줍니다. ▼▼▼
+// 요일 리스트 생성 함수
 fun daysOfWeek(firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY): List<DayOfWeek> {
     return (0..6).map { firstDayOfWeek.plus(it.toLong()) }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
     viewModel: CalendarViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
-    // DB 날짜 파싱
+    // DB 데이터를 날짜별로 그룹화
     val excusesByDate = remember(uiState.excuseList) {
         uiState.excuseList.groupBy {
             try {
@@ -55,23 +62,17 @@ fun CalendarScreen(
         }
     }
 
-    CalendarContent(excusesByDate = excusesByDate)
-}
-
-
-
-@Composable
-fun CalendarContent(
-    excusesByDate: Map<LocalDate, List<Excuse>>
-) {
+    // 캘린더 설정
     val currentMonth = remember { YearMonth.now() }
-    val startMonth = remember { currentMonth.minusMonths(24) }
-    val endMonth = remember { currentMonth.plusMonths(12) }
-
-    // 여기서 아까 만든 함수를 사용합니다.
+    val startMonth = remember { currentMonth.minusMonths(100) } // 과거 100개월
+    val endMonth = remember { currentMonth.plusMonths(100) }   // 미래 100개월
     val daysOfWeek = remember { daysOfWeek() }
 
+    // 사용자가 선택한 날짜 (기본값: 오늘)
     var selection by remember { mutableStateOf(LocalDate.now()) }
+
+    // 날짜 선택 팝업 표시 여부
+    var showDatePicker by remember { mutableStateOf(false) }
 
     val state = rememberCalendarState(
         startMonth = startMonth,
@@ -80,10 +81,24 @@ fun CalendarContent(
         firstDayOfWeek = daysOfWeek.first()
     )
 
+    // 현재 스크롤된 달(Month)을 감지
+    val visibleMonth = remember(state.firstVisibleMonth) { state.firstVisibleMonth.yearMonth }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+
+        // ▼▼▼ 1. 연/월 헤더 (클릭 시 팝업) ▼▼▼
+        CalendarHeader(
+            yearMonth = visibleMonth,
+            onHeaderClick = { showDatePicker = true }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 2. 요일 헤더
         DaysOfWeekTitle(daysOfWeek = daysOfWeek)
         Spacer(modifier = Modifier.height(10.dp))
 
+        // 3. 달력 본체
         HorizontalCalendar(
             state = state,
             dayContent = { day ->
@@ -101,15 +116,10 @@ fun CalendarContent(
         )
 
         Spacer(modifier = Modifier.height(20.dp))
-
-        // ▼▼▼ [수정 2] Material3에서는 Divider 대신 HorizontalDivider를 씁니다. ▼▼▼
-        Divider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            thickness = 1.dp
-        )
-
+        Divider()
         Spacer(modifier = Modifier.height(10.dp))
 
+        // 4. 선택된 날짜의 변명 리스트
         Text(
             text = "${selection.monthValue}월 ${selection.dayOfMonth}일의 변명",
             style = MaterialTheme.typography.titleMedium,
@@ -121,7 +131,7 @@ fun CalendarContent(
 
         if (selectedExcuses.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text("이날은 핑계 댈 게 없었네요!\n(아니면 기록을 안 했거나...)", color = Color.Gray, textAlign = TextAlign.Center)
+                Text("이날은 핑계 댈 게 없었네요!", color = Color.Gray, textAlign = TextAlign.Center)
             }
         } else {
             LazyColumn(
@@ -134,6 +144,69 @@ fun CalendarContent(
                 }
             }
         }
+    }
+
+    // ▼▼▼ 5. 날짜 선택 팝업 (DatePicker) ▼▼▼
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = visibleMonth.atDay(1)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selectedMillis = datePickerState.selectedDateMillis
+                    if (selectedMillis != null) {
+                        val selectedDate = Instant.ofEpochMilli(selectedMillis)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+
+                        // 선택한 날짜가 있는 달로 이동
+                        coroutineScope.launch {
+                            state.scrollToMonth(YearMonth.from(selectedDate))
+                        }
+                        // (옵션) 선택값도 그 날짜로 바꿀지 여부:
+                        selection = selectedDate
+                    }
+                    showDatePicker = false
+                }) { Text("이동") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("취소") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+// 헤더 컴포저블
+@Composable
+fun CalendarHeader(
+    yearMonth: YearMonth,
+    onHeaderClick: () -> Unit
+) {
+    val formatter = DateTimeFormatter.ofPattern("yyyy년 M월", Locale.KOREA)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onHeaderClick() }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center // 가운데 정렬
+    ) {
+        Text(
+            text = yearMonth.format(formatter),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "날짜 선택")
     }
 }
 

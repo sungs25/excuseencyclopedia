@@ -1,14 +1,19 @@
 package com.example.excuseencyclopedia.ui.item
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,6 +41,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -123,9 +131,12 @@ fun ItemEntryBody(
         // 사실 가장 쉬운 건 TextField 대신 그냥 Row + Text + Icon을 쓰는 것입니다.
         // 일단 위 코드는 복잡해질 수 있으니 아래 'DateSelector' 컴포저블을 새로 만들어 쓰는 걸로 대체합니다.
 
-        DateSelector(
-            date = itemUiState.date,
-            onClick = { showDatePicker = true }
+
+        CategorySelection(
+            selectedCategory = itemUiState.category,
+            onCategorySelected = { newCategory ->
+                onItemValueChange(itemUiState.copy(category = newCategory))
+            }
         )
 
         // 1. 무엇을 안 했나요?
@@ -240,5 +251,78 @@ fun MyDatePickerDialog(
         }
     ) {
         DatePicker(state = datePickerState)
+    }
+}
+
+@Composable
+fun CategorySelection(
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit
+) {
+    val categories = listOf("건강&생활", "일상&관리", "자기계발&취미", "기타")
+
+    Column {
+        Text(
+            text = "카테고리",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // 2x2 그리드 형태로 배치 (Row 2개 사용)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // 첫 번째 줄 (앞의 2개)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                categories.take(2).forEach { category ->
+                    CategoryChip(
+                        category = category,
+                        isSelected = selectedCategory == category,
+                        onSelect = { onCategorySelected(category) },
+                        modifier = Modifier.weight(1f) // 너비 반반 차지
+                    )
+                }
+            }
+            // 두 번째 줄 (뒤의 2개)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                categories.takeLast(2).forEach { category ->
+                    CategoryChip(
+                        category = category,
+                        isSelected = selectedCategory == category,
+                        onSelect = { onCategorySelected(category) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CategoryChip(
+    category: String,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // 선택 여부에 따라 색상 변경
+    val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+
+    Box(
+        modifier = modifier
+            .height(40.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(containerColor)
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .clickable { onSelect() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = category,
+            color = contentColor,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }

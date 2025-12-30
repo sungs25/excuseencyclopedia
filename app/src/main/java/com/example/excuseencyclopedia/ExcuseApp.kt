@@ -65,13 +65,20 @@ fun ExcuseApp(
                         label = { Text(screen.title) },
                         selected = isSelected,
                         onClick = {
-                            navController.navigate(screen.route) {
-                                // 탭 클릭 시 스택 쌓임 방지 (뒤로가기 눌렀을 때 앱 종료되게)
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            if (screen == BottomNavItem.Record) {
+                                // 스택에 쌓인 거(입력 화면 등) 다 치우고 메인으로 돌아갓!
+                                navController.popBackStack(BottomNavItem.Record.route, inclusive = false)
+                            }
+                            // 2. 다른 탭(캘린더, 통계 등)을 눌렀다면?
+                            else {
+                                navController.navigate(screen.route) {
+                                    // 기존 로직 유지 (상태 저장하며 이동)
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true // 같은 탭 계속 누르면 화면 중복 생성 방지
-                                restoreState = true // 탭 이동했다 돌아오면 상태 복구
                             }
                         }
                     )

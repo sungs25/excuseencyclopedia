@@ -13,4 +13,6 @@ class OfflineExcuseRepository(private val excuseDao: ExcuseDao) : ExcuseReposito
     override suspend fun deleteExcuse(excuse: Excuse) = excuseDao.deleteExcuse(excuse)
 
     override suspend fun updateExcuse(excuse: Excuse) = excuseDao.updateExcuse(excuse)
+
+    override suspend fun deleteAllExcuses() = excuseDao.deleteAllExcuses()
 }

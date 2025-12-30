@@ -8,6 +8,7 @@ import com.example.excuseencyclopedia.ExcuseApplication
 import com.example.excuseencyclopedia.ui.home.HomeViewModel
 import com.example.excuseencyclopedia.ui.item.ItemEntryViewModel
 import com.example.excuseencyclopedia.ui.tabs.CalendarViewModel
+import com.example.excuseencyclopedia.ui.tabs.SettingsViewModel
 import com.example.excuseencyclopedia.ui.tabs.StatsViewModel
 
 // 뷰모델을 만들어주는 공장 객체.
@@ -33,6 +34,10 @@ object AppViewModelProvider {
 
         initializer {
             StatsViewModel(excuseApplication().repository)
+        }
+
+        initializer {
+            SettingsViewModel(excuseApplication().repository)
         }
 
     }

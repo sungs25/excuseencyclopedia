@@ -17,4 +17,7 @@ interface ExcuseRepository {
 
     // 5. 변명 수정하기
     suspend fun updateExcuse(excuse: Excuse)
+
+    //6. 모든 변명 삭제하기
+    suspend fun deleteAllExcuses()
 }

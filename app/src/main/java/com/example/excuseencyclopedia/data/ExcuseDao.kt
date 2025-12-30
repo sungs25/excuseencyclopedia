@@ -33,4 +33,7 @@ interface ExcuseDao {
     // 5. 특정 날짜의 변명만 가져오기 (Read - Date)
     @Query("SELECT * from excuse_table WHERE date = :date")
     fun getExcusesByDate(date: String): Flow<List<Excuse>>
+
+    @Query("DELETE FROM excuse_table")
+    suspend fun deleteAllExcuses()
 }

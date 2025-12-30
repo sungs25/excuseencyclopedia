@@ -1,43 +1,120 @@
 package com.example.excuseencyclopedia
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.excuseencyclopedia.ui.home.HomeScreen
 import com.example.excuseencyclopedia.ui.item.ItemEntryScreen
+import com.example.excuseencyclopedia.ui.tabs.CalendarScreen
+import com.example.excuseencyclopedia.ui.tabs.SettingsScreen
+import com.example.excuseencyclopedia.ui.tabs.StatsScreen
 
-// 화면들의 주소(Route)를 미리 이름 지어둡니다. (오타 방지)
-enum class ExcuseScreen {
-    Start, // 메인 화면
-    Entry  // 입력 화면
+// 1. 하단 탭 메뉴 정의
+enum class BottomNavItem(
+    val route: String,
+    val title: String,
+    val icon: ImageVector
+) {
+    Record("record", "기록", Icons.Default.List),
+    Calendar("calendar", "캘린더", Icons.Default.DateRange),
+    Stats("stats", "통계", Icons.Default.Home),
+    Settings("settings", "설정", Icons.Default.Settings)
+}
+
+// 2. 탭이 아닌 다른 화면들 (글쓰기 등)
+object Routes {
+    const val Entry = "entry"
 }
 
 @Composable
 fun ExcuseApp(
     navController: NavHostController = rememberNavController()
 ) {
-    // NavHost: 여기서 화면을 갈아입혀줍니다.
-    NavHost(
-        navController = navController,
-        startDestination = ExcuseScreen.Start.name // 앱 켜면 처음 보여줄 화면
-    ) {
+    Scaffold(
+        // 3. 하단 내비게이션 바 구현
+        bottomBar = {
+            NavigationBar {
+                // 현재 보고 있는 화면이 무엇인지 알아냄
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
 
-        // 1. 메인 화면 (Start)
-        composable(route = ExcuseScreen.Start.name) {
-            HomeScreen(
-                // (+) 버튼 누르면 Entry 화면으로 이동해라!
-                navigateToItemEntry = { navController.navigate(ExcuseScreen.Entry.name) }
-            )
+                // 4개의 탭을 반복문으로 그림
+                BottomNavItem.entries.forEach { screen ->
+                    val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                    NavigationBarItem(
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = { Text(screen.title) },
+                        selected = isSelected,
+                        onClick = {
+                            navController.navigate(screen.route) {
+                                // 탭 클릭 시 스택 쌓임 방지 (뒤로가기 눌렀을 때 앱 종료되게)
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true // 같은 탭 계속 누르면 화면 중복 생성 방지
+                                restoreState = true // 탭 이동했다 돌아오면 상태 복구
+                            }
+                        }
+                    )
+                }
+            }
         }
+    ) { innerPadding ->
+        // 4. 화면 갈아끼우는 곳 (NavHost)
+        // innerPadding: 하단 바에 가려지지 않게 패딩을 줌
+        NavHost(
+            navController = navController,
+            startDestination = BottomNavItem.Record.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            // [탭 1] 기록 (메인)
+            composable(BottomNavItem.Record.route) {
+                HomeScreen(
+                    navigateToItemEntry = { navController.navigate(Routes.Entry) }
+                )
+            }
 
-        // 2. 입력 화면 (Entry)
-        composable(route = ExcuseScreen.Entry.name) {
-            ItemEntryScreen(
-                // 저장하거나 뒤로가기 누르면 이전 화면으로 돌아가라!
-                navigateBack = { navController.popBackStack() }
-            )
+            // [탭 2] 캘린더
+            composable(BottomNavItem.Calendar.route) {
+                CalendarScreen()
+            }
+
+            // [탭 3] 통계
+            composable(BottomNavItem.Stats.route) {
+                StatsScreen()
+            }
+
+            // [탭 4] 설정
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen()
+            }
+
+            // [기타] 입력 화면 (Entry)
+            // 참고: 입력 화면에서는 하단 바를 숨기고 싶을 수도 있지만, 일단은 간단하게 보이게 둡니다.
+            composable(Routes.Entry) {
+                ItemEntryScreen(
+                    navigateBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

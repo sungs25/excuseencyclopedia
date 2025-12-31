@@ -11,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info // ★ Folder 대신 Info(정보) 아이콘 사용
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
@@ -50,7 +50,8 @@ enum class BottomNavItem(
 ) {
     Record("record", "기록", Icons.AutoMirrored.Filled.List),
     Calendar("calendar", "캘린더", Icons.Default.DateRange),
-    Stats("stats", "통계", Icons.Default.Home),
+    // ▼▼▼ Folder 오류 해결: Info 아이콘으로 대체 (폴더는 확장 라이브러리 필요) ▼▼▼
+    Stats("stats", "통계", Icons.Default.Info),
     Settings("settings", "설정", Icons.Default.Settings)
 }
 
@@ -66,8 +67,6 @@ fun ExcuseApp(
     navController: NavHostController = rememberNavController()
 ) {
     Scaffold(
-        // [수정] Scaffold의 floatingActionButton 삭제함! (바 안에 넣을 거니까)
-
         // 하단 바
         bottomBar = {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -104,9 +103,7 @@ fun ExcuseApp(
                     )
                 }
 
-                // ▼▼▼ [가운데: 안 한 일 기록 버튼] ▼▼▼
-                // Box를 써서 양옆 아이콘들과 똑같은 공간(weight 1f)을 차지하게 만듭니다.
-                // 이렇게 하면 정확히 정중앙에 위치합니다.
+                // [가운데: 안 한 일 기록 버튼]
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -118,7 +115,6 @@ fun ExcuseApp(
                         containerColor = PurpleMain,
                         contentColor = Color.White,
                         shape = CircleShape,
-                        // 바 안에 들어가므로 그림자를 없애거나 줄여서 납작하게 만들 수도 있습니다.
                         elevation = FloatingActionButtonDefaults.elevation(4.dp),
                         modifier = Modifier.size(56.dp)
                     ) {

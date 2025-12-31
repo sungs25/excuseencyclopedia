@@ -1,58 +1,38 @@
 package com.example.excuseencyclopedia.ui.item
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.excuseencyclopedia.PurpleMain
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
+// 홈 화면과 같은 배경색
+val GrayBackground = Color(0xFFF6F7F9)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,268 +41,258 @@ fun ItemEntryScreen(
     viewModel: ItemEntryViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     Scaffold(
+        containerColor = GrayBackground, // 배경색 설정
+        // 상단 바는 디자인에 따라 없애거나 심플하게 둡니다. (여기선 깔끔하게 타이틀만)
         topBar = {
-            TopAppBar(
-                title = { Text("변명 기록하기") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+            CenterAlignedTopAppBar(
+                title = { Text("변명 기록하기", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = GrayBackground
                 )
             )
         }
     ) { innerPadding ->
-        ItemEntryBody(
-            itemUiState = viewModel.itemUiState,
-            onItemValueChange = viewModel::updateUiState,
-            onSaveClick = {
-                coroutineScope.launch {
-                    viewModel.saveItem()
-                    navigateBack()
-                }
-            },
+        Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .fillMaxWidth()
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ItemEntryBody(
-    itemUiState: ItemUiState,
-    onItemValueChange: (ItemUiState) -> Unit,
-    onSaveClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // 달력 팝업을 보여줄지 말지 결정하는 변수
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        // 0. 날짜 선택 영역 (추가됨!)
-        // 텍스트 필드처럼 보이지만 누르면 달력이 뜨도록 만듭니다.
-        OutlinedTextField(
-            value = itemUiState.date,
-            onValueChange = { }, // 직접 타이핑 불가
-            label = { Text("날짜") },
-            readOnly = true, // 키보드 안 올라오게
-            trailingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showDatePicker = true }, // 클릭하면 팝업 오픈
-            enabled = false, // 비활성화된 것처럼 보이지만 클릭 이벤트는 위에서 처리... 하려고 했는데 enabled=false면 클릭도 안 먹습니다.
-            colors = androidx.compose.material3.TextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledContainerColor = MaterialTheme.colorScheme.surface,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                disabledIndicatorColor = MaterialTheme.colorScheme.outline,
-                disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            // 팁: enabled=false 대신 interactionSource를 쓰는 게 정석이지만,
-            // 편법으로 Box로 감싸서 클릭 이벤트를 받겠습니다. 아래 코드를 봐주세요.
-        )
-        // 위 TextField가 클릭이 안 될 수 있으므로 투명 버튼을 덮어씌웁니다.
-        // (더 깔끔한 방법도 있지만, 지금은 직관적인 Box 방식으로 처리)
-        // 사실 가장 쉬운 건 TextField 대신 그냥 Row + Text + Icon을 쓰는 것입니다.
-        // 일단 위 코드는 복잡해질 수 있으니 아래 'DateSelector' 컴포저블을 새로 만들어 쓰는 걸로 대체합니다.
-
-
-        CategorySelection(
-            selectedCategory = itemUiState.category,
-            onCategorySelected = { newCategory ->
-                onItemValueChange(itemUiState.copy(category = newCategory))
-            }
-        )
-
-        // 1. 무엇을 안 했나요?
-        OutlinedTextField(
-            value = itemUiState.task,
-            onValueChange = { onItemValueChange(itemUiState.copy(task = it)) },
-            label = { Text("안 한 일 (예: 운동)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        // 2. 왜 안 했나요?
-        OutlinedTextField(
-            value = itemUiState.reason,
-            onValueChange = { onItemValueChange(itemUiState.copy(reason = it)) },
-            label = { Text("변명 내용 (예: 비가 와서)") },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 3,
-            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Default)
-        )
-
-        // 3. 뻔뻔함 점수
-        Column {
-            Text(text = "뻔뻔함 점수: ${itemUiState.score.toInt()}점")
-            Slider(
-                value = itemUiState.score,
-                onValueChange = { onItemValueChange(itemUiState.copy(score = it)) },
-                valueRange = 1f..5f,
-                steps = 3
-            )
-        }
-
-        // 4. 저장 버튼
-        Button(
-            onClick = onSaveClick,
-            enabled = itemUiState.isEntryValid,
-            modifier = Modifier.fillMaxWidth()
+                .fillMaxSize()
+                .padding(horizontal = 20.dp)
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(16.dp) // 박스들 사이 간격
         ) {
-            Text("변명 도감에 등재하기")
-        }
-    }
+            Spacer(modifier = Modifier.height(10.dp))
 
-    // 달력 팝업 (미래 날짜 선택 불가)
-    if (showDatePicker) {
-        MyDatePickerDialog(
-            onDateSelected = { selectedDate ->
-                onItemValueChange(itemUiState.copy(date = selectedDate))
-                showDatePicker = false
-            },
-            onDismiss = { showDatePicker = false }
-        )
-    }
-}
+            // 1. 카테고리 선택 (드롭다운 스타일)
+            CategorySelector(
+                selectedCategory = viewModel.itemUiState.category,
+                onCategorySelected = { viewModel.updateUiState(viewModel.itemUiState.copy(category = it)) }
+            )
 
-// 날짜 선택 버튼 UI (텍스트 필드 흉내)
-@Composable
-fun DateSelector(date: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp), // 터치 영역 확보
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Default.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.width(16.dp))
-        Column {
-            Text(text = "날짜", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            Text(text = date, style = MaterialTheme.typography.bodyLarge)
-        }
-    }
-}
+            // 2. 안 한 일 입력
+            StyledTextField(
+                value = viewModel.itemUiState.task,
+                onValueChange = { viewModel.updateUiState(viewModel.itemUiState.copy(task = it)) },
+                placeholder = "안 한 일",
+                singleLine = true
+            )
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MyDatePickerDialog(
-    onDateSelected: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val datePickerState = rememberDatePickerState(
-        selectableDates = object : SelectableDates {
-            // 미래 날짜 선택 불가 로직 (오늘 포함, 내일부터 불가)
-            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                return utcTimeMillis <= System.currentTimeMillis()
-            }
-        }
-    )
+            // 3. 변명 입력 (높이가 좀 있는 박스)
+            StyledTextField(
+                value = viewModel.itemUiState.reason,
+                onValueChange = { viewModel.updateUiState(viewModel.itemUiState.copy(reason = it)) },
+                placeholder = "변명",
+                minLines = 5, // 세로로 길게
+                singleLine = false
+            )
 
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    // 선택된 시간(Long)을 문자열("yyyy-MM-dd")로 변환
-                    val selectedDateMillis = datePickerState.selectedDateMillis
-                    if (selectedDateMillis != null) {
-                        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                        // DatePicker는 UTC 기준이라 한국 시간 보정 필요할 수 있음 (일단 심플하게 처리)
-                        formatter.timeZone = TimeZone.getTimeZone("UTC")
-                        onDateSelected(formatter.format(Date(selectedDateMillis)))
-                    }
-                    onDismiss()
+            // 4. 날짜 선택
+            DateSelectorBox(
+                date = viewModel.itemUiState.date,
+                onDateSelected = { newDate ->
+                    viewModel.updateUiState(viewModel.itemUiState.copy(date = newDate))
                 }
+            )
+
+            Spacer(modifier = Modifier.weight(1f)) // 버튼을 바닥으로 밀어내기 위한 공간
+
+            // 5. 등록 버튼
+            Button(
+                onClick = {
+                    coroutineScope.launch {
+                        viewModel.saveItem()
+                        navigateBack()
+                    }
+                },
+                enabled = viewModel.itemUiState.isEntryValid,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .padding(bottom = 20.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PurpleMain,
+                    disabledContainerColor = PurpleMain.copy(alpha = 0.5f)
+                )
             ) {
-                Text("확인")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
+                Text(
+                    text = "변명 등록하기",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
             }
         }
+    }
+}
+
+// ▼▼▼ 커스텀 컴포넌트들 (디자인 요소) ▼▼▼
+
+@Composable
+fun StyledTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    singleLine: Boolean = true,
+    minLines: Int = 1
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // 그림자 없이 깔끔하게 (원하면 숫자 조정)
+        modifier = Modifier.fillMaxWidth()
     ) {
-        DatePicker(state = datePickerState)
+        Box(
+            modifier = Modifier.padding(20.dp)
+        ) {
+            if (value.isEmpty()) {
+                Text(text = placeholder, color = Color.Gray)
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = TextStyle(fontSize = 16.sp, color = Color.Black),
+                singleLine = singleLine,
+                minLines = minLines,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
 @Composable
-fun CategorySelection(
+fun CategorySelector(
     selectedCategory: String,
     onCategorySelected: (String) -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
     val categories = listOf("건강&생활", "일상&관리", "자기계발&취미", "기타")
 
-    Column {
-        Text(
-            text = "카테고리",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = true } // 카드 전체 클릭 시 메뉴 오픈
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(20.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // 분홍색 아이콘 박스 (이미지 참고)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFFFEBF0)), // 연한 분홍 배경
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Face, contentDescription = null, tint = Color(0xFFFF4081), modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
 
-        // 2x2 그리드 형태로 배치 (Row 2개 사용)
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 첫 번째 줄 (앞의 2개)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                categories.take(2).forEach { category ->
-                    CategoryChip(
-                        category = category,
-                        isSelected = selectedCategory == category,
-                        onSelect = { onCategorySelected(category) },
-                        modifier = Modifier.weight(1f) // 너비 반반 차지
-                    )
-                }
+                // 선택된 카테고리가 없으면 "카테고리"라고 표시
+                Text(
+                    text = if(selectedCategory == "기타" && selectedCategory !in categories) "카테고리" else selectedCategory,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
-            // 두 번째 줄 (뒤의 2개)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                categories.takeLast(2).forEach { category ->
-                    CategoryChip(
-                        category = category,
-                        isSelected = selectedCategory == category,
-                        onSelect = { onCategorySelected(category) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
+        }
+
+        // 드롭다운 메뉴
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color.White)
+        ) {
+            categories.forEach { category ->
+                DropdownMenuItem(
+                    text = { Text(category) },
+                    onClick = {
+                        onCategorySelected(category)
+                        expanded = false
+                    }
+                )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoryChip(
-    category: String,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier
+fun DateSelectorBox(
+    date: String,
+    onDateSelected: (String) -> Unit
 ) {
-    // 선택 여부에 따라 색상 변경
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+    var showDatePicker by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = modifier
-            .height(40.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(containerColor)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable { onSelect() },
-        contentAlignment = Alignment.Center
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDatePicker = true }
     ) {
-        Text(
-            text = category,
-            color = contentColor,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        Row(
+            modifier = Modifier
+                .padding(20.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // 보라색 아이콘 박스
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFEBE9FF)), // 연한 보라 배경
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.DateRange, contentDescription = null, tint = PurpleMain, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(text = date, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
+        }
+    }
+
+    // 날짜 선택 팝업 (기존 로직 재사용)
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    return utcTimeMillis <= System.currentTimeMillis()
+                }
+            }
         )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selectedMillis = datePickerState.selectedDateMillis
+                    if (selectedMillis != null) {
+                        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        formatter.timeZone = TimeZone.getTimeZone("UTC")
+                        onDateSelected(formatter.format(Date(selectedMillis)))
+                    }
+                    showDatePicker = false
+                }) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("취소") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 }

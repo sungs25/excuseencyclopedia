@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +34,6 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-// 홈 화면과 같은 배경색
 val GrayBackground = Color(0xFFF6F7F9)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,8 +46,7 @@ fun ItemEntryScreen(
     val scrollState = rememberScrollState()
 
     Scaffold(
-        containerColor = GrayBackground, // 배경색 설정
-        // 상단 바는 디자인에 따라 없애거나 심플하게 둡니다. (여기선 깔끔하게 타이틀만)
+        containerColor = GrayBackground,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("변명 기록하기", fontWeight = FontWeight.Bold) },
@@ -59,13 +60,15 @@ fun ItemEntryScreen(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
+                // [수정 1] 하단 패딩을 넉넉히 주어 버튼이 잘리지 않게 함
                 .padding(horizontal = 20.dp)
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(16.dp) // 박스들 사이 간격
+                .verticalScroll(scrollState)
+                .padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 1. 카테고리 선택 (드롭다운 스타일)
+            // 1. 카테고리 선택
             CategorySelector(
                 selectedCategory = viewModel.itemUiState.category,
                 onCategorySelected = { viewModel.updateUiState(viewModel.itemUiState.copy(category = it)) }
@@ -79,12 +82,13 @@ fun ItemEntryScreen(
                 singleLine = true
             )
 
-            // 3. 변명 입력 (높이가 좀 있는 박스)
+            // 3. 변명 입력
             StyledTextField(
                 value = viewModel.itemUiState.reason,
                 onValueChange = { viewModel.updateUiState(viewModel.itemUiState.copy(reason = it)) },
                 placeholder = "변명",
-                minLines = 5, // 세로로 길게
+                // [수정 2] 기본 높이를 3줄로 줄임
+                minLines = 3,
                 singleLine = false
             )
 
@@ -96,7 +100,7 @@ fun ItemEntryScreen(
                 }
             )
 
-            Spacer(modifier = Modifier.weight(1f)) // 버튼을 바닥으로 밀어내기 위한 공간
+            Spacer(modifier = Modifier.weight(1f))
 
             // 5. 등록 버튼
             Button(
@@ -109,8 +113,7 @@ fun ItemEntryScreen(
                 enabled = viewModel.itemUiState.isEntryValid,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(bottom = 20.dp),
+                    .height(56.dp), // 패딩은 Column에서 처리하므로 여기선 제거
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = PurpleMain,
@@ -128,8 +131,6 @@ fun ItemEntryScreen(
     }
 }
 
-// ▼▼▼ 커스텀 컴포넌트들 (디자인 요소) ▼▼▼
-
 @Composable
 fun StyledTextField(
     value: String,
@@ -141,7 +142,7 @@ fun StyledTextField(
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), // 그림자 없이 깔끔하게 (원하면 숫자 조정)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Box(
@@ -162,6 +163,17 @@ fun StyledTextField(
     }
 }
 
+// [수정 3] 카테고리별 아이콘/색상 매핑 함수 추가
+@Composable
+fun getCategoryIconAndColor(category: String): Pair<ImageVector, Color> {
+    return when (category) {
+        "건강&생활" -> Icons.Default.Favorite to Color(0xFFFF8A80)
+        "일상&관리" -> Icons.Default.Face to Color(0xFF82B1FF)
+        "자기계발&취미" -> Icons.Default.Star to Color(0xFFFFD180)
+        else -> Icons.Default.List to Color(0xFFCFD8DC) // 기타
+    }
+}
+
 @Composable
 fun CategorySelector(
     selectedCategory: String,
@@ -170,12 +182,15 @@ fun CategorySelector(
     var expanded by remember { mutableStateOf(false) }
     val categories = listOf("건강&생활", "일상&관리", "자기계발&취미", "기타")
 
+    // 현재 선택된 카테고리의 아이콘과 색상 가져오기
+    val (icon, color) = getCategoryIconAndColor(selectedCategory)
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = true } // 카드 전체 클릭 시 메뉴 오픈
+            .clickable { expanded = true }
     ) {
         Row(
             modifier = Modifier
@@ -185,19 +200,18 @@ fun CategorySelector(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // 분홍색 아이콘 박스 (이미지 참고)
+                // 아이콘 박스 (선택된 카테고리 색상 적용)
                 Box(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFFFEBF0)), // 연한 분홍 배경
+                        .background(color.copy(alpha = 0.2f)), // 연한 배경색
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Face, contentDescription = null, tint = Color(0xFFFF4081), modifier = Modifier.size(20.dp))
+                    Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
                 }
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // 선택된 카테고리가 없으면 "카테고리"라고 표시
                 Text(
                     text = if(selectedCategory == "기타" && selectedCategory !in categories) "카테고리" else selectedCategory,
                     fontSize = 16.sp,
@@ -207,15 +221,17 @@ fun CategorySelector(
             Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
         }
 
-        // 드롭다운 메뉴
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(Color.White)
         ) {
             categories.forEach { category ->
+                // 드롭다운 메뉴 아이템에도 아이콘 추가 (선택 사항)
+                val (itemIcon, itemColor) = getCategoryIconAndColor(category)
                 DropdownMenuItem(
                     text = { Text(category) },
+                    leadingIcon = { Icon(itemIcon, contentDescription = null, tint = itemColor) },
                     onClick = {
                         onCategorySelected(category)
                         expanded = false
@@ -249,12 +265,11 @@ fun DateSelectorBox(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // 보라색 아이콘 박스
                 Box(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFEBE9FF)), // 연한 보라 배경
+                        .background(Color(0xFFEBE9FF)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.DateRange, contentDescription = null, tint = PurpleMain, modifier = Modifier.size(20.dp))
@@ -266,7 +281,6 @@ fun DateSelectorBox(
         }
     }
 
-    // 날짜 선택 팝업 (기존 로직 재사용)
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             selectableDates = object : SelectableDates {

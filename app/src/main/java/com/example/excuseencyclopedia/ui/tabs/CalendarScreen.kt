@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.excuseencyclopedia.data.Excuse
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
-import com.example.excuseencyclopedia.ui.home.ExcuseItem
+import com.example.excuseencyclopedia.ui.home.ExcuseItemCard
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
@@ -140,7 +140,7 @@ fun CalendarScreen(
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 items(selectedExcuses) { excuse ->
-                    ExcuseItem(excuse = excuse, onDeleteClick = {})
+                    ExcuseItemCard(excuse = excuse, onDeleteClick = {})
                 }
             }
         }

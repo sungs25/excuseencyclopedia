@@ -59,7 +59,7 @@ fun HomeScreen(
     Scaffold(
         // 배경색을 밝은 회색으로 설정
         containerColor = GrayBackground,
-        floatingActionButton = {
+        /*floatingActionButton = {
             FloatingActionButton(
                 onClick = navigateToItemEntry,
                 containerColor = PurpleMain, // FAB도 보라색으로
@@ -70,7 +70,7 @@ fun HomeScreen(
                 Icon(Icons.Default.Add, contentDescription = "추가", modifier = Modifier.size(32.dp))
             }
         },
-        floatingActionButtonPosition = FabPosition.Center // 중앙 배치 (이미지처럼)
+        floatingActionButtonPosition = FabPosition.Center // 중앙 배치 (이미지처럼)*/
     ) { innerPadding ->
         Column(
             modifier = modifier
@@ -334,18 +334,18 @@ fun ExcuseItemCard(
             // 2. 메인: 안 한 일 (제목)
             Text(
                 text = excuse.task,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp), // 22sp로 확대
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 3. 내용: 변명
             Text(
                 text = excuse.reason,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp), // 16sp로 확대
+                color = Color.DarkGray // 가독성을 위해 조금 더 진한 회색
             )
 
             Spacer(modifier = Modifier.height(16.dp))

@@ -1,6 +1,11 @@
 package com.example.excuseencyclopedia.ui.tabs
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,30 +29,43 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.excuseencyclopedia.alarm.AlarmScheduler
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
 
 
-// 배경색 (StatsScreen과 공유)
-// 만약 여기서 빨간 줄이 뜨면 아래 줄의 주석을 푸세요.
-// val GrayBackground = Color(0xFFF6F7F9)
-
 @Composable
 fun SettingsScreen(
-    // ★ 이미 만들어두신 뷰모델을 여기서 가져옵니다!
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
-    // 알림 스위치 상태
-    var isNotificationEnabled by remember { mutableStateOf(true) }
+    // 알람 관리자 생성
+    val alarmScheduler = remember { AlarmScheduler(context) }
 
-    // 팝업 표시 여부
+    // 기본값은 false (꺼짐)
+    var isNotificationEnabled by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    // 권한 요청 런처 (안드로이드 13+ 대응)
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                isNotificationEnabled = true
+                alarmScheduler.scheduleDailyAlarm()
+                Toast.makeText(context, "매일 밤 9시에 알림이 울립니다.", Toast.LENGTH_SHORT).show()
+            } else {
+                isNotificationEnabled = false
+                Toast.makeText(context, "알림 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
     Scaffold(
-        containerColor = Color(0xFFF6F7F9) // GrayBackground 대신 직접 색상 코드 사용 (충돌 방지)
+        containerColor = Color(0xFFF6F7F9)
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -66,16 +84,39 @@ fun SettingsScreen(
                 color = Color.Black
             )
 
-            // 1. 일반 설정
+            // 1. 일반 설정 (알림)
             SettingsGroupCard(title = "일반") {
                 SettingsSwitchItem(
                     icon = Icons.Default.Notifications,
-                    title = "매일 알림 받기",
+                    title = "매일 밤 9시에 알림 받기",
                     checked = isNotificationEnabled,
-                    onCheckedChange = {
-                        isNotificationEnabled = it
-                        val message = if(it) "알림이 켜졌습니다." else "알림이 꺼졌습니다."
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    onCheckedChange = { shouldEnable ->
+                        if (shouldEnable) {
+                            // 켜려고 할 때: 권한 체크
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val hasPermission = ContextCompat.checkSelfPermission(
+                                    context, Manifest.permission.POST_NOTIFICATIONS
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                                if (hasPermission) {
+                                    isNotificationEnabled = true
+                                    alarmScheduler.scheduleDailyAlarm()
+                                    Toast.makeText(context, "매일 밤 9시에 알림이 울립니다.", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            } else {
+                                // 안드로이드 12 이하 (권한 불필요)
+                                isNotificationEnabled = true
+                                alarmScheduler.scheduleDailyAlarm()
+                                Toast.makeText(context, "매일 밤 9시에 알림이 울립니다.", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            // 끄려고 할 때: 알람 취소
+                            isNotificationEnabled = false
+                            alarmScheduler.cancelDailyAlarm()
+                            Toast.makeText(context, "알림이 해제되었습니다.", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
             }
@@ -100,7 +141,7 @@ fun SettingsScreen(
                 SettingsClickableItem(
                     icon = Icons.Default.Delete,
                     title = "모든 기록 초기화",
-                    onClick = { showDeleteDialog = true }, // 팝업 띄우기
+                    onClick = { showDeleteDialog = true },
                     textColor = Color.Red,
                     iconColor = Color.Red
                 )
@@ -110,7 +151,6 @@ fun SettingsScreen(
         }
     }
 
-    // ▼▼▼ 삭제 확인 팝업 (기능 연결) ▼▼▼
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -119,9 +159,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // ★★★ 여기서 사용자님이 만드신 함수를 호출합니다! ★★★
                         viewModel.clearAllData()
-
                         Toast.makeText(context, "모든 기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
                         showDeleteDialog = false
                     }
@@ -130,17 +168,14 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("취소")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
             },
             containerColor = Color.White
         )
     }
 }
 
-// --- 아래 컴포넌트들은 디자인 요소이므로 그대로 둡니다 ---
-
+// ... 아래 디자인 컴포넌트들(SettingsGroupCard 등)은 그대로 둡니다 ...
 @Composable
 fun SettingsGroupCard(
     title: String,

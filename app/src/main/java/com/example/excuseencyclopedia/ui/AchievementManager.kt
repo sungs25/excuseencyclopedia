@@ -76,17 +76,12 @@ object AchievementManager {
             "short_text", "귀차니즘의 정수", "긴말 필요 없죠. 인정합니다.", Icons.Default.ThumbUp, isUnlocked = hasShort
         ))
 
-        // 번복의 제왕
-        achievements.add(Achievement(
-            "edit_king", "번복의 제왕", "더 완벽한 핑계를 위해 내용을 수정하셨군요.", Icons.Default.Build, isUnlocked = editCount > 0
-        ))
-
 
         // --- (3) 도감 수집형 ---
 
-        // 외길 인생 (한 카테고리 5회 이상)
+        // 외길 인생 (한 카테고리 10회 이상)
         val categoryCounts = excuses.groupingBy { it.category }.eachCount()
-        val oneWay = categoryCounts.any { it.value >= 5 }
+        val oneWay = categoryCounts.any { it.value >= 10 }
         achievements.add(Achievement(
             "one_way", "외길 인생", "한 우물만 파는 당신, 핑계 장인입니다.", Icons.Default.LocationOn, isUnlocked = oneWay
         ))
@@ -124,7 +119,7 @@ object AchievementManager {
         // 777 잭팟 (테스트용 10회)
         achievements.add(Achievement(
             "jackpot", "777 잭팟", "핑계도 대다 보면 행운이 옵니다.", Icons.Default.Favorite,
-            isHidden = true, isUnlocked = excuses.size >= 10
+            isHidden = true, isUnlocked = excuses.size >= 777
         ))
 
         return achievements

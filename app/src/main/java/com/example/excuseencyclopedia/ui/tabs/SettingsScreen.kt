@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
@@ -37,9 +38,10 @@ import com.example.excuseencyclopedia.alarm.AlarmScheduler
 import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
 
+
 @Composable
 fun SettingsScreen(
-    // ★ 업적 화면으로 이동하기 위한 함수 추가
+    // ★ 업적 화면으로 이동하기 위한 함수 (NavGraph에서 연결됨)
     onAchievementsClick: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -57,7 +59,7 @@ fun SettingsScreen(
     // ★ 구독 상태 (화면 갱신을 위해 State로 관리)
     var isPremium by remember { mutableStateOf(prefs.isPremium) }
 
-    // 권한 요청 런처
+    // 권한 요청 런처 (알림용)
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
@@ -95,23 +97,39 @@ fun SettingsScreen(
             // 1. 멤버십 설정 (구독 여부에 따라 다르게 보임)
             SettingsGroupCard(title = "멤버십") {
                 if (isPremium) {
-                    // (1) 구독 중일 때: 상태 표시 + 업적 버튼
+                    // (1) 구독 중일 때
+
+                    // 상태 표시
                     SettingsTextItem(
                         icon = Icons.Default.CheckCircle,
                         title = "프리미엄 이용 중 👑",
                         trailingText = "구독 중"
                     )
 
-                    // 구분선
                     HorizontalDivider(color = Color(0xFFF6F7F9), thickness = 1.dp)
 
-                    // ★ [NEW] 업적 도감 바로가기 버튼
+                    // 업적 도감 바로가기 버튼
                     SettingsClickableItem(
                         icon = Icons.Default.Star,
                         title = "나의 업적 도감 보기 🏆",
                         onClick = { onAchievementsClick() }, // 클릭 시 이동!
                         textColor = Color.Black,
                         iconColor = Color(0xFFFFD700) // 금색 아이콘
+                    )
+
+                    HorizontalDivider(color = Color(0xFFF6F7F9), thickness = 1.dp)
+
+                    // ★ 구독 해지 버튼 (테스트용)
+                    SettingsClickableItem(
+                        icon = Icons.Default.Close,
+                        title = "구독 해지하기 (테스트)",
+                        onClick = {
+                            prefs.isPremium = false
+                            isPremium = false
+                            Toast.makeText(context, "구독이 해지되었습니다. (광고가 다시 뜹니다)", Toast.LENGTH_SHORT).show()
+                        },
+                        textColor = Color.Gray,
+                        iconColor = Color.Gray
                     )
 
                 } else {
@@ -207,7 +225,6 @@ fun SettingsScreen(
                         viewModel.clearAllData()
                         // 기록 삭제 시 횟수 초기화
                         prefs.saveCount = 0
-                        // (선택사항) 업적 진행도 초기화를 원하면 여기서 처리 가능
 
                         Toast.makeText(context, "모든 기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
                         showDeleteDialog = false

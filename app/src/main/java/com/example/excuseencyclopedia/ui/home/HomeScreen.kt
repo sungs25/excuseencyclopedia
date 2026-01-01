@@ -257,7 +257,7 @@ fun HomeBody(
 ) {
     if (excuseList.isEmpty()) {
         Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Text(text = "기록된 내용이 없습니다.", color = Color.Gray)
+            Text(text = "오늘 안 한 일과 변명을 기록해 보세요.", color = Color.Gray)
         }
     } else {
         LazyColumn(

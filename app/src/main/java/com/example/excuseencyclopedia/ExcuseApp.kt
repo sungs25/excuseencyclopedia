@@ -1,6 +1,8 @@
 package com.example.excuseencyclopedia
 
-import androidx.compose.animation.AnimatedContentTransitionScope
+import android.app.Activity // ★ 추가
+import android.widget.Toast // ★ 추가
+import androidx.activity.compose.BackHandler // ★ 추가
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,11 +29,15 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf // ★ 추가
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue // ★ 추가
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext // ★ 추가
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -77,6 +83,27 @@ fun ExcuseApp(
 
     // 기록 화면일 때는 하단 바 숨김
     val showBottomBar = currentRoute != Routes.Entry
+
+    // ★ [기능 추가] 뒤로가기 2번 눌러 종료하기 로직
+    val context = LocalContext.current
+    var backPressedTime by remember { mutableLongStateOf(0L) }
+
+    // 현재 화면이 메인 탭(기록, 캘린더, 통계, 설정) 중 하나인지 확인
+    val rootRoutes = BottomNavItem.entries.map { it.route }
+    val isRootScreen = currentRoute in rootRoutes
+
+    // 메인 화면일 때만 뒤로가기 동작을 가로챕니다.
+    BackHandler(enabled = isRootScreen) {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - backPressedTime < 2000) {
+            // 2초 안에 두 번 눌렀으면 -> 앱 종료
+            (context as? Activity)?.finish()
+        } else {
+            // 첫 번째 클릭 -> 토스트 메시지 & 시간 기록
+            backPressedTime = currentTime
+            Toast.makeText(context, "한 번 더 누르면 종료됩니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -160,7 +187,7 @@ fun ExcuseApp(
             navController = navController,
             startDestination = BottomNavItem.Record.route,
             modifier = Modifier.padding(innerPadding),
-            // ★ 기본 애니메이션: 탭 간 이동 시 깜빡임 제거 (페이드만 살짝)
+            // 기본 애니메이션
             enterTransition = { fadeIn(animationSpec = tween(300)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
@@ -174,20 +201,18 @@ fun ExcuseApp(
                 )
             }
 
-            // ★ 여기가 핵심! 기록 화면 애니메이션 (위로 올라오기)
+            // 기록 화면 애니메이션 (위로 올라오기)
             composable(
                 route = Routes.Entry,
-                // 1. 들어갈 때: 아래에서 위로 (Slide Up)
                 enterTransition = {
                     slideInVertically(
-                        initialOffsetY = { fullHeight -> fullHeight }, // 화면 전체 높이만큼 아래에서 시작
-                        animationSpec = tween(400) // 0.4초 동안
+                        initialOffsetY = { fullHeight -> fullHeight },
+                        animationSpec = tween(400)
                     ) + fadeIn()
                 },
-                // 2. 나갈 때 (뒤로가기): 위에서 아래로 (Slide Down)
                 popExitTransition = {
                     slideOutVertically(
-                        targetOffsetY = { fullHeight -> fullHeight }, // 화면 아래로 사라짐
+                        targetOffsetY = { fullHeight -> fullHeight },
                         animationSpec = tween(400)
                     ) + fadeOut()
                 }

@@ -30,10 +30,13 @@ import com.example.excuseencyclopedia.PurpleMain
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-
+import kotlin.math.roundToInt
 
 val GrayBackground = Color(0xFFF6F7F9)
 
@@ -91,7 +94,7 @@ fun ItemEntryScreen(
                 singleLine = false
             )
 
-            // 4. 날짜
+            // 4. 날짜 (미래 날짜 선택 불가 기능 추가됨)
             DateSelectorBox(
                 date = viewModel.itemUiState.date,
                 onDateSelected = { newDate ->
@@ -99,8 +102,7 @@ fun ItemEntryScreen(
                 }
             )
 
-            // 5. 뻔뻔함 점수 슬라이더
-            // ★ 수정됨: 그냥 Float 그대로 주고받습니다. (변환 없음 -> 오류 없음)
+            // 5. 뻔뻔함 점수
             ScoreSliderBox(
                 score = viewModel.itemUiState.score,
                 onScoreChanged = { newScore ->
@@ -139,7 +141,7 @@ fun ItemEntryScreen(
     }
 }
 
-// ... StyledTextField 등 기존 컴포넌트 유지 ...
+// ... StyledTextField 등 기존 컴포넌트들 ...
 
 @Composable
 fun StyledTextField(
@@ -234,6 +236,7 @@ fun CategorySelector(
     }
 }
 
+// ▼▼▼ [업데이트됨] 미래 날짜 선택 방지 기능이 추가된 DateSelectorBox ▼▼▼
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateSelectorBox(
@@ -267,7 +270,22 @@ fun DateSelectorBox(
     }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState()
+        // ★ 여기서 '오늘'을 포함한 과거만 선택 가능하게 설정합니다.
+        val datePickerState = rememberDatePickerState(
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    // 선택하려는 날짜(UTC)가 오늘(Local)보다 미래인지 확인
+                    val checkDate = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneId.of("UTC"))
+                        .toLocalDate()
+                    val today = LocalDate.now()
+
+                    // "미래가 아니면(!isAfter)" 선택 가능
+                    return !checkDate.isAfter(today)
+                }
+            }
+        )
+
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -286,11 +304,10 @@ fun DateSelectorBox(
     }
 }
 
-// ▼▼▼ [수정 완료] Float으로 통일한 ScoreSliderBox ▼▼▼
 @Composable
 fun ScoreSliderBox(
-    score: Float, // 입력도 Float
-    onScoreChanged: (Float) -> Unit // 출력도 Float
+    score: Float,
+    onScoreChanged: (Float) -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -313,8 +330,6 @@ fun ScoreSliderBox(
                     fontWeight = FontWeight.Medium
                 )
 
-                // ★ 여기서만 .toInt()로 정수처럼 보여줍니다. (3.0 -> 3점)
-                // 실제 데이터는 Float지만 보여줄 때만 깔끔하게!
                 Text(
                     text = "${score.toInt()}점",
                     fontSize = 18.sp,
@@ -326,8 +341,8 @@ fun ScoreSliderBox(
             Spacer(modifier = Modifier.height(8.dp))
 
             Slider(
-                value = score, // 그대로 사용
-                onValueChange = { onScoreChanged(it) }, // 그대로 전달
+                value = score,
+                onValueChange = { onScoreChanged(it) },
                 valueRange = 1f..5f,
                 steps = 3,
                 colors = SliderDefaults.colors(

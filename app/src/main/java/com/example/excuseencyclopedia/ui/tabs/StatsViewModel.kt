@@ -11,11 +11,11 @@ import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-// 그래프를 그리기 위한 데이터 클래스 추가
+// 그래프 데이터 클래스
 data class CategoryStat(
     val name: String,
     val count: Int,
-    val percentage: Float // 0.0 ~ 1.0 (그래프 길이용)
+    val percentage: Float
 )
 
 data class StatsUiState(
@@ -24,10 +24,8 @@ data class StatsUiState(
     val monthlyAverage: Double = 0.0,
     val monthlyTopCategory: String = "-",
     val totalCount: Int = 0,
-    // ★ 추가됨: 카테고리별 통계 리스트 (그래프용)
     val categoryStats: List<CategoryStat> = emptyList(),
-    // ★ 추가됨: 이달의 칭호 (재미 요소)
-    val userTitle: String = "데이터 부족"
+    val userTitle: String = "핑계 신생아" // 기본 칭호
 )
 
 class StatsViewModel(private val repository: ExcuseRepository) : ViewModel() {
@@ -44,38 +42,43 @@ class StatsViewModel(private val repository: ExcuseRepository) : ViewModel() {
         val monthlyList = excuseList.filter { it.date.startsWith(currentMonthStr) }
 
         if (monthlyList.isEmpty()) {
-            StatsUiState(selectedDate = selectedDate, totalCount = total)
+            StatsUiState(
+                selectedDate = selectedDate,
+                totalCount = total,
+                userTitle = "🥚 핑계 신생아" // 데이터 없을 때
+            )
         } else {
             val avg = monthlyList.map { it.score }.average()
+            val count = monthlyList.size
 
-            // 1. 카테고리 통계 상세 계산
+            // 1. 카테고리 통계 계산
             val categoryMap = monthlyList.groupingBy { it.category }.eachCount()
-            val totalMonthly = monthlyList.size
 
-            // 맵을 리스트로 변환하고 비율 계산 (많은 순 정렬)
-            val catStats = categoryMap.map { (name, count) ->
-                CategoryStat(name, count, count.toFloat() / totalMonthly)
+            val catStats = categoryMap.map { (name, cnt) ->
+                CategoryStat(name, cnt, cnt.toFloat() / count)
             }.sortedByDescending { it.count }
 
             val topCat = catStats.firstOrNull()?.name ?: "-"
 
-            // 2. 재미있는 칭호 부여 로직
+            // ★ 2. [업데이트됨] 진화하는 핑계러 칭호 로직
             val title = when {
-                monthlyList.size >= 10 && avg >= 4.0 -> "👑 전설의 혓바닥"
-                monthlyList.size >= 10 -> "🏃 프로 도망러"
-                avg >= 4.5 -> "🛡️ 철면피 마스터"
-                avg <= 2.0 -> "🥺 소심한 핑계쟁이"
-                monthlyList.size <= 3 -> "🌱 성실한 새싹"
-                else -> "🤔 평범한 일반인"
+                count >= 60 -> "👴 전설의 핑계 깎는 노인"
+                count >= 50 -> "🤖 핑계 자판기"
+                count >= 40 -> "💨 숨 쉬듯 핑계"
+                count >= 30 -> "🧠 논리 창조가"
+                count >= 20 -> "✨ 임기응변 유망주"
+                count >= 10 -> "🚪 입문 핑계러"
+                count >= 5 -> "🌱 귀여운 핑계 새싹"
+                else -> "🥚 핑계 신생아" // 5회 미만
             }
 
             StatsUiState(
                 selectedDate = selectedDate,
-                monthlyCount = monthlyList.size,
+                monthlyCount = count,
                 monthlyAverage = avg,
                 monthlyTopCategory = topCat,
                 totalCount = total,
-                categoryStats = catStats, // 리스트 전달
+                categoryStats = catStats,
                 userTitle = title
             )
         }

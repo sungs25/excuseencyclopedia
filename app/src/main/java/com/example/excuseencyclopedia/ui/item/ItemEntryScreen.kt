@@ -1,5 +1,6 @@
 package com.example.excuseencyclopedia.ui.item
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,12 +22,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.excuseencyclopedia.PurpleMain
+import com.example.excuseencyclopedia.data.PreferenceManager
+import com.example.excuseencyclopedia.ui.AdMobHelper
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -36,8 +40,8 @@ import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import kotlin.math.roundToInt
 
+// 배경색 (StatsScreen, SettingsScreen과 통일)
 val GrayBackground = Color(0xFFF6F7F9)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +52,16 @@ fun ItemEntryScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+
+    // --- 광고 및 구독 관리 설정 ---
+    val context = LocalContext.current
+    val prefs = remember { PreferenceManager(context) }
+    val adHelper = remember { AdMobHelper(context) }
+
+    // 화면이 켜지면 광고를 미리 로딩해둡니다.
+    LaunchedEffect(Unit) {
+        adHelper.loadAd()
+    }
 
     Scaffold(
         containerColor = GrayBackground,
@@ -71,13 +85,13 @@ fun ItemEntryScreen(
         ) {
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 1. 카테고리
+            // 1. 카테고리 선택
             CategorySelector(
                 selectedCategory = viewModel.itemUiState.category,
                 onCategorySelected = { viewModel.updateUiState(viewModel.itemUiState.copy(category = it)) }
             )
 
-            // 2. 안 한 일
+            // 2. 안 한 일 입력
             StyledTextField(
                 value = viewModel.itemUiState.task,
                 onValueChange = { viewModel.updateUiState(viewModel.itemUiState.copy(task = it)) },
@@ -85,7 +99,7 @@ fun ItemEntryScreen(
                 singleLine = true
             )
 
-            // 3. 변명
+            // 3. 변명 입력
             StyledTextField(
                 value = viewModel.itemUiState.reason,
                 onValueChange = { viewModel.updateUiState(viewModel.itemUiState.copy(reason = it)) },
@@ -94,7 +108,7 @@ fun ItemEntryScreen(
                 singleLine = false
             )
 
-            // 4. 날짜 (미래 날짜 선택 불가 기능 추가됨)
+            // 4. 날짜 선택 (미래 날짜 방지 기능 포함)
             DateSelectorBox(
                 date = viewModel.itemUiState.date,
                 onDateSelected = { newDate ->
@@ -102,7 +116,7 @@ fun ItemEntryScreen(
                 }
             )
 
-            // 5. 뻔뻔함 점수
+            // 5. 뻔뻔함 점수 슬라이더
             ScoreSliderBox(
                 score = viewModel.itemUiState.score,
                 onScoreChanged = { newScore ->
@@ -112,12 +126,28 @@ fun ItemEntryScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // 6. 등록 버튼
+            // 6. 저장 버튼 (여기에 광고 로직이 들어갑니다)
             Button(
                 onClick = {
                     coroutineScope.launch {
+                        // (1) 데이터 저장
                         viewModel.saveItem()
-                        navigateBack()
+
+                        // (2) 광고를 보여줘야 하는 타이밍인지 확인 (3번째 기록인가?)
+                        if (prefs.shouldShowAd()) {
+                            val activity = context as? Activity
+                            if (activity != null) {
+                                // 3번째면 광고 띄우고 -> 닫으면 뒤로가기
+                                adHelper.showAd(activity) {
+                                    navigateBack()
+                                }
+                            } else {
+                                navigateBack()
+                            }
+                        } else {
+                            // 아니면(또는 프리미엄이면) 바로 뒤로가기
+                            navigateBack()
+                        }
                     }
                 },
                 enabled = viewModel.itemUiState.isEntryValid,
@@ -141,7 +171,7 @@ fun ItemEntryScreen(
     }
 }
 
-// ... StyledTextField 등 기존 컴포넌트들 ...
+// --- 아래는 UI 컴포넌트들입니다 ---
 
 @Composable
 fun StyledTextField(
@@ -236,7 +266,6 @@ fun CategorySelector(
     }
 }
 
-// ▼▼▼ [업데이트됨] 미래 날짜 선택 방지 기능이 추가된 DateSelectorBox ▼▼▼
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateSelectorBox(
@@ -270,17 +299,16 @@ fun DateSelectorBox(
     }
 
     if (showDatePicker) {
-        // ★ 여기서 '오늘'을 포함한 과거만 선택 가능하게 설정합니다.
         val datePickerState = rememberDatePickerState(
             selectableDates = object : SelectableDates {
+                // 미래 날짜 선택 방지 로직 (오류 수정됨: isSelectableDate 사용)
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    // 선택하려는 날짜(UTC)가 오늘(Local)보다 미래인지 확인
                     val checkDate = Instant.ofEpochMilli(utcTimeMillis)
                         .atZone(ZoneId.of("UTC"))
                         .toLocalDate()
                     val today = LocalDate.now()
 
-                    // "미래가 아니면(!isAfter)" 선택 가능
+                    // 오늘 포함, 과거만 선택 가능
                     return !checkDate.isAfter(today)
                 }
             }

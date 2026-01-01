@@ -14,10 +14,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,8 +34,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.excuseencyclopedia.alarm.AlarmScheduler
+import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
-
 
 @Composable
 fun SettingsScreen(
@@ -42,14 +44,18 @@ fun SettingsScreen(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
-    // 알람 관리자 생성
+    // 알람 & 설정 관리자
     val alarmScheduler = remember { AlarmScheduler(context) }
+    val prefs = remember { PreferenceManager(context) }
 
-    // 기본값은 false (꺼짐)
+    // 상태 관리
     var isNotificationEnabled by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // 권한 요청 런처 (안드로이드 13+ 대응)
+    // ★ 구독 상태 (화면 갱신을 위해 State로 관리)
+    var isPremium by remember { mutableStateOf(prefs.isPremium) }
+
+    // 권한 요청 런처
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
@@ -84,15 +90,40 @@ fun SettingsScreen(
                 color = Color.Black
             )
 
-            // 1. 일반 설정 (알림)
+            // 1. [NEW] 멤버십 설정
+            SettingsGroupCard(title = "멤버십") {
+                if (isPremium) {
+                    // 구독 중일 때
+                    SettingsTextItem(
+                        icon = Icons.Default.CheckCircle,
+                        title = "프리미엄 이용 중 👑",
+                        trailingText = "구독 중"
+                    )
+                } else {
+                    // 구독 안 했을 때
+                    SettingsClickableItem(
+                        icon = Icons.Default.Star,
+                        title = "프리미엄 구독하기",
+                        onClick = {
+                            // ★ 가상 결제: 여기서도 구독 가능하게 처리
+                            prefs.isPremium = true
+                            isPremium = true
+                            Toast.makeText(context, "구독해주셔서 감사합니다! 🎉", Toast.LENGTH_SHORT).show()
+                        },
+                        textColor = PurpleMain,
+                        iconColor = PurpleMain
+                    )
+                }
+            }
+
+            // 2. 일반 설정 (알림)
             SettingsGroupCard(title = "일반") {
                 SettingsSwitchItem(
                     icon = Icons.Default.Notifications,
-                    title = "매일 밤 9시에 알림 받기",
+                    title = "매일 알림 받기 (밤 9시)",
                     checked = isNotificationEnabled,
                     onCheckedChange = { shouldEnable ->
                         if (shouldEnable) {
-                            // 켜려고 할 때: 권한 체크
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 val hasPermission = ContextCompat.checkSelfPermission(
                                     context, Manifest.permission.POST_NOTIFICATIONS
@@ -106,13 +137,11 @@ fun SettingsScreen(
                                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 }
                             } else {
-                                // 안드로이드 12 이하 (권한 불필요)
                                 isNotificationEnabled = true
                                 alarmScheduler.scheduleDailyAlarm()
                                 Toast.makeText(context, "매일 밤 9시에 알림이 울립니다.", Toast.LENGTH_SHORT).show()
                             }
                         } else {
-                            // 끄려고 할 때: 알람 취소
                             isNotificationEnabled = false
                             alarmScheduler.cancelDailyAlarm()
                             Toast.makeText(context, "알림이 해제되었습니다.", Toast.LENGTH_SHORT).show()
@@ -121,7 +150,7 @@ fun SettingsScreen(
                 )
             }
 
-            // 2. 정보
+            // 3. 정보
             SettingsGroupCard(title = "정보") {
                 SettingsTextItem(
                     icon = Icons.Default.Info,
@@ -136,7 +165,7 @@ fun SettingsScreen(
                 )
             }
 
-            // 3. 데이터 관리
+            // 4. 데이터 관리
             SettingsGroupCard(title = "데이터 관리") {
                 SettingsClickableItem(
                     icon = Icons.Default.Delete,
@@ -151,6 +180,7 @@ fun SettingsScreen(
         }
     }
 
+    // 삭제 팝업
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -160,6 +190,9 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         viewModel.clearAllData()
+                        // ★ 기록 삭제 시 횟수 카운트도 초기화해주면 좋습니다 (선택사항)
+                        prefs.saveCount = 0
+
                         Toast.makeText(context, "모든 기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
                         showDeleteDialog = false
                     }
@@ -175,7 +208,8 @@ fun SettingsScreen(
     }
 }
 
-// ... 아래 디자인 컴포넌트들(SettingsGroupCard 등)은 그대로 둡니다 ...
+// --- 하위 컴포넌트들 (기존 유지) ---
+
 @Composable
 fun SettingsGroupCard(
     title: String,

@@ -38,28 +38,22 @@ import com.example.excuseencyclopedia.alarm.AlarmScheduler
 import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
 
-
 @Composable
 fun SettingsScreen(
-    // ★ 업적 화면으로 이동하기 위한 함수 (NavGraph에서 연결됨)
     onAchievementsClick: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
-    // 알람 & 설정 관리자
     val alarmScheduler = remember { AlarmScheduler(context) }
     val prefs = remember { PreferenceManager(context) }
 
-    // 상태 관리
     var isNotificationEnabled by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // ★ 구독 상태 (화면 갱신을 위해 State로 관리)
     var isPremium by remember { mutableStateOf(prefs.isPremium) }
 
-    // 권한 요청 런처 (알림용)
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
@@ -94,12 +88,10 @@ fun SettingsScreen(
                 color = Color.Black
             )
 
-            // 1. 멤버십 설정 (구독 여부에 따라 다르게 보임)
+            // 1. 멤버십 설정
             SettingsGroupCard(title = "멤버십") {
                 if (isPremium) {
-                    // (1) 구독 중일 때
-
-                    // 상태 표시
+                    // (1) 구독 중
                     SettingsTextItem(
                         icon = Icons.Default.CheckCircle,
                         title = "프리미엄 이용 중 👑",
@@ -108,37 +100,36 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = Color(0xFFF6F7F9), thickness = 1.dp)
 
-                    // 업적 도감 바로가기 버튼
                     SettingsClickableItem(
                         icon = Icons.Default.Star,
                         title = "나의 업적 도감 보기 🏆",
-                        onClick = { onAchievementsClick() }, // 클릭 시 이동!
+                        onClick = { onAchievementsClick() },
                         textColor = Color.Black,
-                        iconColor = Color(0xFFFFD700) // 금색 아이콘
+                        iconColor = Color(0xFFFFD700)
                     )
 
                     HorizontalDivider(color = Color(0xFFF6F7F9), thickness = 1.dp)
 
-                    // ★ 구독 해지 버튼 (테스트용)
                     SettingsClickableItem(
                         icon = Icons.Default.Close,
                         title = "구독 해지하기 (테스트)",
                         onClick = {
                             prefs.isPremium = false
                             isPremium = false
-                            Toast.makeText(context, "구독이 해지되었습니다. (광고가 다시 뜹니다)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "구독이 해지되었습니다.", Toast.LENGTH_SHORT).show()
                         },
                         textColor = Color.Gray,
                         iconColor = Color.Gray
                     )
 
                 } else {
-                    // (2) 구독 안 했을 때: 구독 유도 버튼
+                    // (2) 구독 안 함 (★ 여기에 설명 추가됨)
                     SettingsClickableItem(
                         icon = Icons.Default.Star,
                         title = "프리미엄 구독하기",
+                        // ▼▼▼ 혜택 설명 추가 ▼▼▼
+                        subtitle = "광고 제거 + 프리미엄 리포트 잠금 해제",
                         onClick = {
-                            // ★ 가상 결제: 누르면 바로 구독된 걸로 처리
                             prefs.isPremium = true
                             isPremium = true
                             Toast.makeText(context, "구독해주셔서 감사합니다! 🎉", Toast.LENGTH_SHORT).show()
@@ -149,7 +140,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 2. 일반 설정 (알림)
+            // 2. 일반 설정
             SettingsGroupCard(title = "일반") {
                 SettingsSwitchItem(
                     icon = Icons.Default.Notifications,
@@ -213,7 +204,6 @@ fun SettingsScreen(
         }
     }
 
-    // 삭제 확인 다이얼로그
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -223,9 +213,7 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         viewModel.clearAllData()
-                        // 기록 삭제 시 횟수 초기화
                         prefs.saveCount = 0
-
                         Toast.makeText(context, "모든 기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
                         showDeleteDialog = false
                     }
@@ -339,10 +327,12 @@ fun SettingsTextItem(
     }
 }
 
+// ★ [수정됨] subtitle(보조 문구)을 받을 수 있게 변경
 @Composable
 fun SettingsClickableItem(
     icon: ImageVector,
     title: String,
+    subtitle: String? = null, // 추가됨 (기본값 null)
     onClick: () -> Unit,
     textColor: Color = Color.Black,
     iconColor: Color = PurpleMain
@@ -366,7 +356,15 @@ fun SettingsClickableItem(
                 Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = textColor)
+
+            // 제목과 부제목을 세로로 배치
+            Column {
+                Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = textColor)
+                if (subtitle != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(text = subtitle, fontSize = 12.sp, color = Color.Gray)
+                }
+            }
         }
         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp))
     }

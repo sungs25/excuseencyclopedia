@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Favorite
@@ -20,10 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,10 +36,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-// 디자인에 쓸 포인트 컬러 정의 (보라색 계열)
+// 디자인 컬러 정의
 val PurpleMain = Color(0xFF6C63FF)
 val PurpleLight = Color(0xFFEBE9FF)
-val GrayBackground = Color(0xFFF6F7F9) // 전체 배경색 (아주 연한 회색)
+val GrayBackground = Color(0xFFF6F7F9)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,30 +53,17 @@ fun HomeScreen(
     var showDatePicker by remember { mutableStateOf(false) }
 
     Scaffold(
-        // 배경색을 밝은 회색으로 설정
         containerColor = GrayBackground,
-        /*floatingActionButton = {
-            FloatingActionButton(
-                onClick = navigateToItemEntry,
-                containerColor = PurpleMain, // FAB도 보라색으로
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier.size(64.dp) // 버튼 크기 조금 키움
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "추가", modifier = Modifier.size(32.dp))
-            }
-        },
-        floatingActionButtonPosition = FabPosition.Center // 중앙 배치 (이미지처럼)*/
     ) { innerPadding ->
         Column(
             modifier = modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .padding(horizontal = 20.dp) // 전체적으로 양옆 여백 줌
+                .padding(horizontal = 20.dp)
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 1. 헤더 (2025년 12월 v)
+            // 1. 헤더
             YearMonthHeader(
                 currentDate = homeUiState.selectedDate,
                 onHeaderClick = { showDatePicker = true }
@@ -88,7 +71,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 2. 주간 달력 (카드형 디자인)
+            // 2. 주간 달력
             WeekCalendarSection(
                 selectedDate = homeUiState.selectedDate,
                 onDateSelected = viewModel::updateDate
@@ -96,11 +79,11 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. 리스트 (카드 리스트)
+            // 3. 리스트
             HomeBody(
                 excuseList = homeUiState.excuseList,
                 onDeleteClick = { excuseToDelete = it },
-                modifier = Modifier.weight(1f) // 남은 공간 다 차지
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -123,13 +106,20 @@ fun HomeScreen(
         )
     }
 
-    // 날짜 선택 팝업 (기존 유지)
+    // 날짜 선택 팝업
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = homeUiState.selectedDate
                 .atStartOfDay(ZoneId.systemDefault())
                 .toInstant()
-                .toEpochMilli()
+                .toEpochMilli(),
+            // ★ 핵심 1: 미래 날짜 선택 불가 설정 (SelectableDates)
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    // 오늘까지만 선택 가능 (내일부턴 false)
+                    return utcTimeMillis <= System.currentTimeMillis()
+                }
+            }
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -150,7 +140,6 @@ fun HomeScreen(
     }
 }
 
-// ▼▼▼ 헤더 디자인 변경 (왼쪽 정렬, 큰 글씨) ▼▼▼
 @Composable
 fun YearMonthHeader(
     currentDate: LocalDate,
@@ -166,7 +155,7 @@ fun YearMonthHeader(
     ) {
         Text(
             text = currentDate.format(formatter),
-            style = MaterialTheme.typography.headlineMedium, // 24~28sp 정도의 큰 글씨
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = Color.Black
         )
@@ -175,13 +164,12 @@ fun YearMonthHeader(
     }
 }
 
-// ▼▼▼ 달력 디자인 변경 (카드형) ▼▼▼
 @Composable
 fun WeekCalendarSection(
     selectedDate: LocalDate,
     onDateSelected: (LocalDate) -> Unit
 ) {
-    val currentDate = remember { LocalDate.now() }
+    val currentDate = remember { LocalDate.now() } // 오늘 날짜
     val startDate = remember { currentDate.minusDays(500) }
     val endDate = remember { currentDate.plusDays(500) }
 
@@ -196,10 +184,19 @@ fun WeekCalendarSection(
     WeekCalendar(
         state = state,
         dayContent = { day ->
+            // ★ 핵심 2: 미래 날짜인지 확인
+            val isFuture = day.date.isAfter(currentDate)
+
             DayItem(
                 day = day,
                 isSelected = selectedDate == day.date,
-                onClick = { onDateSelected(it.date) }
+                isFuture = isFuture, // 미래 여부 전달
+                onClick = {
+                    // ★ 핵심 3: 미래가 아닐 때만 클릭 허용
+                    if (!isFuture) {
+                        onDateSelected(it.date)
+                    }
+                }
             )
         }
     )
@@ -209,20 +206,21 @@ fun WeekCalendarSection(
 fun DayItem(
     day: WeekDay,
     isSelected: Boolean,
+    isFuture: Boolean, // 추가됨
     onClick: (WeekDay) -> Unit
 ) {
-    // 선택 여부에 따른 색상 결정
     val backgroundColor = if (isSelected) PurpleMain else Color.White
-    val contentColor = if (isSelected) Color.White else Color.Black
+    // 미래 날짜면 연한 회색 글씨, 아니면 검정/흰색
+    val contentColor = if (isSelected) Color.White else if (isFuture) Color.LightGray else Color.Black
     val elevation = if (isSelected) 8.dp else 2.dp
 
     Card(
         modifier = Modifier
             .padding(horizontal = 4.dp, vertical = 4.dp)
-            .width(48.dp) // 카드 너비 고정
-            .height(70.dp) // 카드 높이 (이미지처럼 길게)
-            .clickable { onClick(day) },
-        shape = RoundedCornerShape(16.dp), // 둥근 모서리
+            .width(48.dp)
+            .height(70.dp)
+            .clickable(enabled = !isFuture) { onClick(day) }, // 미래 날짜 클릭 방지
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
@@ -231,7 +229,6 @@ fun DayItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // 날짜 (23, 24...)
             Text(
                 text = day.date.dayOfMonth.toString(),
                 style = MaterialTheme.typography.titleMedium,
@@ -239,11 +236,10 @@ fun DayItem(
                 color = contentColor
             )
             Spacer(modifier = Modifier.height(4.dp))
-            // 요일 (Mon, Tue...)
             Text(
                 text = day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH),
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray
+                color = if (isSelected) Color.White.copy(alpha = 0.8f) else if (isFuture) Color.LightGray else Color.Gray
             )
         }
     }
@@ -262,8 +258,8 @@ fun HomeBody(
     } else {
         LazyColumn(
             modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(16.dp), // 카드 간 간격 넓게
-            contentPadding = PaddingValues(bottom = 80.dp) // FAB에 가려지지 않게 여백
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 80.dp)
         ) {
             items(excuseList, key = { it.id }) { excuse ->
                 ExcuseItemCard(excuse = excuse, onDeleteClick = onDeleteClick)
@@ -272,23 +268,21 @@ fun HomeBody(
     }
 }
 
-// ▼▼▼ 리스트 아이템 디자인 변경 (하얀색 예쁜 카드) ▼▼▼
 @Composable
 fun ExcuseItemCard(
     excuse: Excuse,
     onDeleteClick: (Excuse) -> Unit
 ) {
-    // 카테고리별 아이콘 및 색상 매핑
     val (icon, color) = when (excuse.category) {
-        "건강&생활" -> Icons.Default.Favorite to Color(0xFFFF8A80) // 붉은 계열
-        "일상&관리" -> Icons.Default.Face to Color(0xFF82B1FF)     // 파란 계열
-        "자기계발&취미" -> Icons.Default.Star to Color(0xFFFFD180)  // 노란 계열
-        else -> Icons.Default.List to Color(0xFFCFD8DC)            // 회색 계열
+        "건강&생활" -> Icons.Default.Favorite to Color(0xFFFF8A80)
+        "일상&관리" -> Icons.Default.Face to Color(0xFF82B1FF)
+        "자기계발&취미" -> Icons.Default.Star to Color(0xFFFFD180)
+        else -> Icons.Default.List to Color(0xFFCFD8DC)
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp), // 더 둥글게
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -297,12 +291,10 @@ fun ExcuseItemCard(
                 .padding(20.dp)
                 .fillMaxWidth()
         ) {
-            // 1. 상단: 카테고리 아이콘 + 이름 + 삭제 버튼
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // 아이콘 배경 (동그라미)
                 Box(
                     modifier = Modifier
                         .size(32.dp)
@@ -321,9 +313,8 @@ fun ExcuseItemCard(
                     color = Color.Gray
                 )
 
-                Spacer(modifier = Modifier.weight(1f)) // 빈 공간 밀어내기
+                Spacer(modifier = Modifier.weight(1f))
 
-                // 삭제 아이콘 (작게)
                 IconButton(onClick = { onDeleteClick(excuse) }, modifier = Modifier.size(24.dp)) {
                     Icon(Icons.Default.Delete, contentDescription = "삭제", tint = Color.LightGray)
                 }
@@ -331,26 +322,23 @@ fun ExcuseItemCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 2. 메인: 안 한 일 (제목)
             Text(
                 text = excuse.task,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp), // 22sp로 확대
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 3. 내용: 변명
             Text(
                 text = excuse.reason,
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp), // 16sp로 확대
-                color = Color.DarkGray // 가독성을 위해 조금 더 진한 회색
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+                color = Color.DarkGray
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 4. 하단: 점수 뱃지 (Pill shape)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End

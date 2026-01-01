@@ -1,7 +1,6 @@
 package com.example.excuseencyclopedia
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -11,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Info // ★ Folder 대신 Info(정보) 아이콘 사용
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
@@ -27,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -38,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.excuseencyclopedia.ui.home.HomeScreen
 import com.example.excuseencyclopedia.ui.item.ItemEntryScreen
+import com.example.excuseencyclopedia.ui.tabs.AchievementsScreen // ★ import 확인
 import com.example.excuseencyclopedia.ui.tabs.CalendarScreen
 import com.example.excuseencyclopedia.ui.tabs.SettingsScreen
 import com.example.excuseencyclopedia.ui.tabs.StatsScreen
@@ -50,13 +49,13 @@ enum class BottomNavItem(
 ) {
     Record("record", "기록", Icons.AutoMirrored.Filled.List),
     Calendar("calendar", "캘린더", Icons.Default.DateRange),
-    // ▼▼▼ Folder 오류 해결: Info 아이콘으로 대체 (폴더는 확장 라이브러리 필요) ▼▼▼
     Stats("stats", "통계", Icons.Default.Info),
     Settings("settings", "설정", Icons.Default.Settings)
 }
 
 object Routes {
     const val Entry = "entry"
+    const val Achievements = "achievements" // ★ 업적 화면 경로 추가
 }
 
 // 디자인 컬러 정의
@@ -67,7 +66,7 @@ fun ExcuseApp(
     navController: NavHostController = rememberNavController()
 ) {
     Scaffold(
-        // 하단 바
+        // 하단 바 (사용자님의 커스텀 디자인 유지)
         bottomBar = {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = navBackStackEntry?.destination
@@ -154,9 +153,21 @@ fun ExcuseApp(
             composable(BottomNavItem.Record.route) { HomeScreen() }
             composable(BottomNavItem.Calendar.route) { CalendarScreen() }
             composable(BottomNavItem.Stats.route) { StatsScreen() }
-            composable(BottomNavItem.Settings.route) { SettingsScreen() }
+
+            // ★ 수정된 부분: SettingsScreen에 클릭 이벤트 연결
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen(
+                    onAchievementsClick = { navController.navigate(Routes.Achievements) }
+                )
+            }
+
             composable(Routes.Entry) {
                 ItemEntryScreen(navigateBack = { navController.popBackStack() })
+            }
+
+            // ★ 추가된 부분: 업적 화면 경로 등록
+            composable(Routes.Achievements) {
+                AchievementsScreen(navigateBack = { navController.popBackStack() })
             }
         }
     }

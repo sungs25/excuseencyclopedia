@@ -28,7 +28,7 @@ data class StatsUiState(
     val userTitle: String = "핑계 신생아" // 기본 칭호
 )
 
-class StatsViewModel(private val repository: ExcuseRepository) : ViewModel() {
+class StatsViewModel(val repository: ExcuseRepository) : ViewModel() {
 
     private val _selectedDate = MutableStateFlow(LocalDate.now())
 

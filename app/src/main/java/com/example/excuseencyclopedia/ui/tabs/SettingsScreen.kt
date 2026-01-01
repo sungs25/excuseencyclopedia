@@ -39,6 +39,8 @@ import com.example.excuseencyclopedia.ui.AppViewModelProvider
 
 @Composable
 fun SettingsScreen(
+    // ★ 업적 화면으로 이동하기 위한 함수 추가
+    onAchievementsClick: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val scrollState = rememberScrollState()
@@ -90,22 +92,35 @@ fun SettingsScreen(
                 color = Color.Black
             )
 
-            // 1. [NEW] 멤버십 설정
+            // 1. 멤버십 설정 (구독 여부에 따라 다르게 보임)
             SettingsGroupCard(title = "멤버십") {
                 if (isPremium) {
-                    // 구독 중일 때
+                    // (1) 구독 중일 때: 상태 표시 + 업적 버튼
                     SettingsTextItem(
                         icon = Icons.Default.CheckCircle,
                         title = "프리미엄 이용 중 👑",
                         trailingText = "구독 중"
                     )
+
+                    // 구분선
+                    HorizontalDivider(color = Color(0xFFF6F7F9), thickness = 1.dp)
+
+                    // ★ [NEW] 업적 도감 바로가기 버튼
+                    SettingsClickableItem(
+                        icon = Icons.Default.Star,
+                        title = "나의 업적 도감 보기 🏆",
+                        onClick = { onAchievementsClick() }, // 클릭 시 이동!
+                        textColor = Color.Black,
+                        iconColor = Color(0xFFFFD700) // 금색 아이콘
+                    )
+
                 } else {
-                    // 구독 안 했을 때
+                    // (2) 구독 안 했을 때: 구독 유도 버튼
                     SettingsClickableItem(
                         icon = Icons.Default.Star,
                         title = "프리미엄 구독하기",
                         onClick = {
-                            // ★ 가상 결제: 여기서도 구독 가능하게 처리
+                            // ★ 가상 결제: 누르면 바로 구독된 걸로 처리
                             prefs.isPremium = true
                             isPremium = true
                             Toast.makeText(context, "구독해주셔서 감사합니다! 🎉", Toast.LENGTH_SHORT).show()
@@ -180,7 +195,7 @@ fun SettingsScreen(
         }
     }
 
-    // 삭제 팝업
+    // 삭제 확인 다이얼로그
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -190,8 +205,9 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         viewModel.clearAllData()
-                        // ★ 기록 삭제 시 횟수 카운트도 초기화해주면 좋습니다 (선택사항)
+                        // 기록 삭제 시 횟수 초기화
                         prefs.saveCount = 0
+                        // (선택사항) 업적 진행도 초기화를 원하면 여기서 처리 가능
 
                         Toast.makeText(context, "모든 기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
                         showDeleteDialog = false
@@ -208,7 +224,7 @@ fun SettingsScreen(
     }
 }
 
-// --- 하위 컴포넌트들 (기존 유지) ---
+// --- 하위 컴포넌트들 ---
 
 @Composable
 fun SettingsGroupCard(

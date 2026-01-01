@@ -32,4 +32,8 @@ class PreferenceManager(context: Context) {
             return false // 아직 아님
         }
     }
+
+    var editCount: Int
+        get() = prefs.getInt("edit_count", 0)
+        set(value) = prefs.edit().putInt("edit_count", value).apply()
 }

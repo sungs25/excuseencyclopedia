@@ -48,7 +48,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.OnboardingScreen
-import com.example.excuseencyclopedia.ui.SplashScreen // ★ Import 확인
+import com.example.excuseencyclopedia.ui.SplashScreen
 import com.example.excuseencyclopedia.ui.home.HomeScreen
 import com.example.excuseencyclopedia.ui.item.ItemEntryScreen
 import com.example.excuseencyclopedia.ui.tabs.AchievementsScreen
@@ -69,7 +69,7 @@ enum class BottomNavItem(
 }
 
 object Routes {
-    const val Splash = "splash" // ★ 스플래시 경로 추가
+    const val Splash = "splash"
     const val Onboarding = "onboarding"
     const val Entry = "entry"
     const val Achievements = "achievements"
@@ -89,10 +89,10 @@ fun ExcuseApp(
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
 
-    // ★ 시작 화면은 무조건 Splash
+    // 시작 화면은 무조건 Splash
     val startDestination = Routes.Splash
 
-    // 하단 바 숨김 조건 (기록 입력, 온보딩, 스플래시 화면일 때 숨김)
+    // 하단 바 숨김 조건
     val showBottomBar = currentRoute != Routes.Entry &&
             currentRoute != Routes.Onboarding &&
             currentRoute != Routes.Splash
@@ -194,15 +194,12 @@ fun ExcuseApp(
             enterTransition = { fadeIn(animationSpec = tween(300)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
-            // ★ [NEW] 0. 스플래시 화면
+            // 0. 스플래시 화면
             composable(Routes.Splash) {
                 SplashScreen(
                     onTimeout = {
-                        // 스플래시가 끝나면 첫 실행 여부에 따라 이동
                         val nextScreen = if (prefs.isFirstRun) Routes.Onboarding else BottomNavItem.Record.route
-
                         navController.navigate(nextScreen) {
-                            // 뒤로가기 눌러서 스플래시로 돌아오지 못하게 제거
                             popUpTo(Routes.Splash) { inclusive = true }
                         }
                     }
@@ -226,8 +223,15 @@ fun ExcuseApp(
             // 3. 캘린더
             composable(BottomNavItem.Calendar.route) { CalendarScreen() }
 
-            // 4. 통계
-            composable(BottomNavItem.Stats.route) { StatsScreen() }
+            // 4. 통계 (★ 여기에 수정이 적용되었습니다!)
+            composable(BottomNavItem.Stats.route) {
+                StatsScreen(
+                    onNavigateToSubscription = {
+                        // 통계 화면에서 '구독하러 가기' 버튼을 누르면 이쪽으로 옵니다.
+                        navController.navigate(Routes.Subscription)
+                    }
+                )
+            }
 
             // 5. 설정
             composable(BottomNavItem.Settings.route) {

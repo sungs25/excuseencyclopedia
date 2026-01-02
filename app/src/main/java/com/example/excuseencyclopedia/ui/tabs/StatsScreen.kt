@@ -9,7 +9,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -34,11 +32,12 @@ import java.time.format.DateTimeFormatter
 val PurpleMain = Color(0xFF6C63FF)
 val PurpleLight = Color(0xFFEBE9FF)
 val GrayBackground = Color(0xFFF6F7F9)
-val BarChartColor = Color(0xFF9FA8DA) // 차트 막대 색상
+val BarChartColor = Color(0xFF9FA8DA)
 
-@OptIn(ExperimentalLayoutApi::class) // FlowRow 사용을 위해 필요
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StatsScreen(
+    onNavigateToSubscription: () -> Unit, // ★ [추가] 구독 화면으로 이동하는 콜백
     viewModel: StatsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -46,20 +45,21 @@ fun StatsScreen(
 
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
-    // 테스트: 강제로 false나 true로 바꿔가며 확인해보세요.
-    var isPremium by remember { mutableStateOf(prefs.isPremium) }
+
+    // 현재 프리미엄 상태 확인
+    val isPremium = prefs.isPremium
 
     Box(
         modifier = Modifier.fillMaxSize().background(GrayBackground)
     ) {
-        // --- 1. 통계 내용 ---
+        // --- 1. 통계 내용 (프리미엄 아니면 블러 처리) ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
                 .verticalScroll(scrollState)
-                .then(if (!isPremium) Modifier.blur(15.dp) else Modifier), // 프리미엄 아니면 블러 처리
-            verticalArrangement = Arrangement.spacedBy(24.dp) // 간격 조금 넓힘
+                .then(if (!isPremium) Modifier.blur(15.dp) else Modifier),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -117,21 +117,21 @@ fun StatsScreen(
                 }
             }
 
-            // ★ 2. [NEW] 월별 추이 (막대 차트)
+            // 2. [월별 추이]
             Column {
                 Text("월별 변명 추이", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(12.dp))
                 BarChartSection(data = uiState.monthlyTrend)
             }
 
-            // ★ 3. [NEW] 자주 쓰는 단어 (워드 클라우드)
+            // 3. [자주 쓰는 단어]
             Column {
                 Text("나의 단골 멘트", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(12.dp))
                 WordCloudSection(words = uiState.frequentWords)
             }
 
-            // 4. [핑계 성향 분석] (기존 그래프)
+            // 4. [핑계 성향 분석]
             Column {
                 Text("핑계 카테고리 분석", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(12.dp))
@@ -181,7 +181,7 @@ fun StatsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(80.dp)) // 하단 여백 충분히
+            Spacer(modifier = Modifier.height(80.dp))
         }
 
         // --- 2. 잠금 화면 (프리미엄 아닐 때) ---
@@ -216,13 +216,15 @@ fun StatsScreen(
                             textAlign = TextAlign.Center, color = Color.Gray, fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.height(24.dp))
+
+                        // ★ [수정] 구독 화면으로 이동하도록 변경 & 텍스트 수정
                         Button(
-                            onClick = { prefs.isPremium = true; isPremium = true },
+                            onClick = { onNavigateToSubscription() },
                             colors = ButtonDefaults.buttonColors(containerColor = PurpleMain),
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             shape = RoundedCornerShape(14.dp)
                         ) {
-                            Text("월 2,900원에 구독하기", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("구독하러 가기", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -232,7 +234,7 @@ fun StatsScreen(
 }
 
 // ==========================================
-// ★ [NEW] 1. 막대 차트 컴포넌트
+// ★ 1. 막대 차트 컴포넌트
 // ==========================================
 @Composable
 fun BarChartSection(data: List<MonthlyTrend>) {
@@ -247,27 +249,24 @@ fun BarChartSection(data: List<MonthlyTrend>) {
                 Text("데이터가 부족합니다.", color = Color.Gray)
             }
         } else {
-            // 최대값 찾기 (0이면 1로 처리해서 나눗셈 오류 방지)
             val maxCount = data.maxOfOrNull { it.count } ?: 1
 
             Row(
                 modifier = Modifier
                     .padding(24.dp)
                     .fillMaxWidth()
-                    .height(200.dp), // ★ 높이를 150dp -> 200dp로 넉넉하게 늘림
+                    .height(200.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
                 data.forEach { item ->
-                    // 막대 하나 (Column)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Bottom, // 아래쪽 정렬
+                        verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier
-                            .weight(1f) // 너비 균등 분배
-                            .fillMaxHeight() // 세로 꽉 채우기
+                            .weight(1f)
+                            .fillMaxHeight()
                     ) {
-                        // 1. 수치 표시 (0이 아닐 때만)
                         if (item.count > 0) {
                             Text(
                                 text = "${item.count}",
@@ -279,21 +278,18 @@ fun BarChartSection(data: List<MonthlyTrend>) {
                             Spacer(modifier = Modifier.height(6.dp))
                         }
 
-                        // 2. 막대 그래프 (최대 높이를 120dp로 제한)
-                        // 비율 계산: (현재값 / 최대값)
                         val barHeight = 120.dp * (item.count.toFloat() / maxCount)
 
                         Box(
                             modifier = Modifier
                                 .width(16.dp)
-                                .height(if (item.count > 0) barHeight else 1.dp) // 0이어도 최소 1dp는 표시 (선처럼)
+                                .height(if (item.count > 0) barHeight else 1.dp)
                                 .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                 .background(if (item.count == maxCount) PurpleMain else BarChartColor)
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 3. 월 이름 (예: 1월) - 여기가 이제 안 잘립니다
                         Text(
                             text = item.month,
                             fontSize = 12.sp,
@@ -310,7 +306,7 @@ fun BarChartSection(data: List<MonthlyTrend>) {
 }
 
 // ==========================================
-// ★ [NEW] 2. 워드 클라우드 컴포넌트
+// ★ 2. 워드 클라우드 컴포넌트
 // ==========================================
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -326,22 +322,20 @@ fun WordCloudSection(words: List<WordFrequency>) {
                 Text("데이터가 부족합니다.", color = Color.Gray)
             }
         } else {
-            // FlowRow: 공간이 부족하면 자동으로 다음 줄로 넘어감 (태그 구름 효과)
             FlowRow(
                 modifier = Modifier.padding(24.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 words.forEachIndexed { index, word ->
-                    // 빈도수에 따라 크기와 색상 다르게
                     val fontSize = when {
-                        index == 0 -> 20.sp // 1등
-                        index < 3 -> 16.sp  // 2~3등
-                        else -> 13.sp       // 나머지
+                        index == 0 -> 20.sp
+                        index < 3 -> 16.sp
+                        else -> 13.sp
                     }
                     val backgroundColor = when {
                         index == 0 -> PurpleMain
-                        index < 3 -> Color(0xFFFFD54F) // 노란색
+                        index < 3 -> Color(0xFFFFD54F)
                         else -> GrayBackground
                     }
                     val textColor = if (index == 0) Color.White else Color.Black
@@ -352,7 +346,7 @@ fun WordCloudSection(words: List<WordFrequency>) {
                         modifier = Modifier.padding(2.dp)
                     ) {
                         Text(
-                            text = "#${word.word} ${if (word.count > 1) "${word.count}" else ""}", // #귀찮아 5
+                            text = "#${word.word} ${if (word.count > 1) "${word.count}" else ""}",
                             fontSize = fontSize,
                             color = textColor,
                             fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,

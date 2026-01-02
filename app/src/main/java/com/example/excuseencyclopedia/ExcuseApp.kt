@@ -1,8 +1,8 @@
 package com.example.excuseencyclopedia
 
-import android.app.Activity // ★ 추가
-import android.widget.Toast // ★ 추가
-import androidx.activity.compose.BackHandler // ★ 추가
+import android.app.Activity
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -29,15 +29,15 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf // ★ 추가
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue // ★ 추가
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext // ★ 추가
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -52,6 +52,7 @@ import com.example.excuseencyclopedia.ui.tabs.AchievementsScreen
 import com.example.excuseencyclopedia.ui.tabs.CalendarScreen
 import com.example.excuseencyclopedia.ui.tabs.SettingsScreen
 import com.example.excuseencyclopedia.ui.tabs.StatsScreen
+import com.example.excuseencyclopedia.ui.tabs.SubscriptionScreen // ★ import 확인
 
 // 1. 하단 탭 메뉴 정의
 enum class BottomNavItem(
@@ -68,6 +69,7 @@ enum class BottomNavItem(
 object Routes {
     const val Entry = "entry"
     const val Achievements = "achievements"
+    const val Subscription = "subscription" // ★ 구독 화면 경로 추가
 }
 
 // 디자인 컬러 정의
@@ -84,22 +86,19 @@ fun ExcuseApp(
     // 기록 화면일 때는 하단 바 숨김
     val showBottomBar = currentRoute != Routes.Entry
 
-    // ★ [기능 추가] 뒤로가기 2번 눌러 종료하기 로직
+    // 뒤로가기 2번 눌러 종료하기 로직
     val context = LocalContext.current
     var backPressedTime by remember { mutableLongStateOf(0L) }
 
-    // 현재 화면이 메인 탭(기록, 캘린더, 통계, 설정) 중 하나인지 확인
+    // 메인 탭 화면들 정의
     val rootRoutes = BottomNavItem.entries.map { it.route }
     val isRootScreen = currentRoute in rootRoutes
 
-    // 메인 화면일 때만 뒤로가기 동작을 가로챕니다.
     BackHandler(enabled = isRootScreen) {
         val currentTime = System.currentTimeMillis()
         if (currentTime - backPressedTime < 2000) {
-            // 2초 안에 두 번 눌렀으면 -> 앱 종료
             (context as? Activity)?.finish()
         } else {
-            // 첫 번째 클릭 -> 토스트 메시지 & 시간 기록
             backPressedTime = currentTime
             Toast.makeText(context, "한 번 더 누르면 종료됩니다.", Toast.LENGTH_SHORT).show()
         }
@@ -146,9 +145,15 @@ fun ExcuseApp(
                             .fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
+                        val isEntryScreen = currentDestination?.route == Routes.Entry
+
                         FloatingActionButton(
-                            onClick = { navController.navigate(Routes.Entry) },
-                            containerColor = PurpleMain,
+                            onClick = {
+                                if (!isEntryScreen) {
+                                    navController.navigate(Routes.Entry)
+                                }
+                            },
+                            containerColor = if (isEntryScreen) Color.Gray else PurpleMain,
                             contentColor = Color.White,
                             shape = CircleShape,
                             elevation = FloatingActionButtonDefaults.elevation(4.dp),
@@ -187,21 +192,29 @@ fun ExcuseApp(
             navController = navController,
             startDestination = BottomNavItem.Record.route,
             modifier = Modifier.padding(innerPadding),
-            // 기본 애니메이션
+            // 기본 애니메이션 (탭 전환)
             enterTransition = { fadeIn(animationSpec = tween(300)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
+            // 1. 기록 (홈)
             composable(BottomNavItem.Record.route) { HomeScreen() }
+
+            // 2. 캘린더
             composable(BottomNavItem.Calendar.route) { CalendarScreen() }
+
+            // 3. 통계
             composable(BottomNavItem.Stats.route) { StatsScreen() }
 
+            // 4. 설정 (★ 업데이트됨)
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
-                    onAchievementsClick = { navController.navigate(Routes.Achievements) }
+                    onAchievementsClick = { navController.navigate(Routes.Achievements) },
+                    // ★ 구독 관리 화면 연결
+                    onManageSubscriptionClick = { navController.navigate(Routes.Subscription) }
                 )
             }
 
-            // 기록 화면 애니메이션 (위로 올라오기)
+            // 5. 기록 입력 (슬라이드 애니메이션)
             composable(
                 route = Routes.Entry,
                 enterTransition = {
@@ -220,8 +233,14 @@ fun ExcuseApp(
                 ItemEntryScreen(navigateBack = { navController.popBackStack() })
             }
 
+            // 6. 업적 도감
             composable(Routes.Achievements) {
                 AchievementsScreen(navigateBack = { navController.popBackStack() })
+            }
+
+            // 7. [NEW] 구독 관리 화면 (★ 새로 추가됨)
+            composable(Routes.Subscription) {
+                SubscriptionScreen(navigateBack = { navController.popBackStack() })
             }
         }
     }

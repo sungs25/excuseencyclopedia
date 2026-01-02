@@ -141,6 +141,8 @@ fun ItemEntryScreen(
                         val newTotalCount = prefs.totalSaveCount + 1
                         prefs.totalSaveCount = newTotalCount
 
+
+
                         // (3) 리뷰 요청 조건 체크
                         // 조건: 정확히 10번째 저장이고 && 아직 리뷰 요청(도장)을 안 받았다면
                         if (newTotalCount == 10 && !prefs.isReviewRequested) {

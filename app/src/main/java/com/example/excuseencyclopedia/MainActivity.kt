@@ -19,6 +19,7 @@ import com.example.excuseencyclopedia.ui.theme.ExcuseEncyclopediaTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO)
         setContent {
             ExcuseEncyclopediaTheme {
                 // Surface: 배경색을 깔아주는 역할

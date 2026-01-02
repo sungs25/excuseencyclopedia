@@ -46,6 +46,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.excuseencyclopedia.data.PreferenceManager
+import com.example.excuseencyclopedia.ui.OnboardingScreen
 import com.example.excuseencyclopedia.ui.home.HomeScreen
 import com.example.excuseencyclopedia.ui.item.ItemEntryScreen
 import com.example.excuseencyclopedia.ui.tabs.AchievementsScreen
@@ -67,6 +69,7 @@ enum class BottomNavItem(
 }
 
 object Routes {
+    const val Onboarding = "onboarding" // ★ 온보딩 경로 추가
     const val Entry = "entry"
     const val Achievements = "achievements"
     const val Subscription = "subscription"
@@ -83,14 +86,23 @@ fun ExcuseApp(
     val currentDestination = navBackStackEntry?.destination
     val currentRoute = currentDestination?.route
 
-    // 기록 화면(Entry)일 때는 하단 바 숨김
-    val showBottomBar = currentRoute != Routes.Entry
+    // Context & Prefs (첫 실행 여부 확인용)
+    val context = LocalContext.current
+    val prefs = remember { PreferenceManager(context) }
+
+    // ★ 시작 화면 결정 로직
+    // 처음 실행이면 Onboarding, 아니면 홈(Record) 화면으로 시작
+    val startDestination = if (prefs.isFirstRun) Routes.Onboarding else BottomNavItem.Record.route
+
+    // 하단 바 숨김 조건 (기록 입력 화면 OR 온보딩 화면일 때 숨김)
+    val showBottomBar = currentRoute != Routes.Entry && currentRoute != Routes.Onboarding
 
     // 뒤로가기 2번 눌러 종료하기 로직
-    val context = LocalContext.current
     var backPressedTime by remember { mutableLongStateOf(0L) }
 
     val rootRoutes = BottomNavItem.entries.map { it.route }
+    // 온보딩 화면도 루트 화면처럼 취급할지는 선택이지만, 보통 온보딩에선 종료 안 시킴.
+    // 여기서는 탭 메뉴 화면들(홈, 캘린더 등)에서만 종료 로직 동작하게 유지
     val isRootScreen = currentRoute in rootRoutes
 
     BackHandler(enabled = isRootScreen) {
@@ -106,7 +118,6 @@ fun ExcuseApp(
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                // ★ 배너 광고 제거됨 -> 깔끔한 원래 디자인 복귀
                 BottomAppBar(
                     containerColor = Color.White,
                     tonalElevation = 10.dp,
@@ -145,7 +156,6 @@ fun ExcuseApp(
                             .fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
-                        // 현재 Entry 화면이 아닐 때만 버튼 활성화 느낌 (실제로는 항상 떠 있음)
                         val isEntryScreen = currentDestination?.route == Routes.Entry
 
                         FloatingActionButton(
@@ -189,13 +199,24 @@ fun ExcuseApp(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = BottomNavItem.Record.route,
+            startDestination = startDestination, // ★ 변수로 변경됨
             modifier = Modifier.padding(innerPadding),
-            // 기본 애니메이션 (탭 간 이동: 페이드)
             enterTransition = { fadeIn(animationSpec = tween(300)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
-            // 1. 기록 (홈) - 네이티브 광고는 여기서 처리함
+            // ★ [NEW] 온보딩 화면 추가
+            composable(Routes.Onboarding) {
+                OnboardingScreen(
+                    onFinished = {
+                        // 온보딩 완료 시 홈으로 이동하고, 뒤로가기 스택에서 온보딩 제거
+                        navController.navigate(BottomNavItem.Record.route) {
+                            popUpTo(Routes.Onboarding) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // 1. 기록 (홈)
             composable(BottomNavItem.Record.route) { HomeScreen() }
 
             // 2. 캘린더
@@ -212,18 +233,18 @@ fun ExcuseApp(
                 )
             }
 
-            // 5. 기록 입력 (슬라이드 애니메이션)
+            // 5. 기록 입력
             composable(
                 route = Routes.Entry,
                 enterTransition = {
                     slideInVertically(
-                        initialOffsetY = { fullHeight -> fullHeight }, // 아래에서 위로
+                        initialOffsetY = { fullHeight -> fullHeight },
                         animationSpec = tween(400)
                     ) + fadeIn()
                 },
                 popExitTransition = {
                     slideOutVertically(
-                        targetOffsetY = { fullHeight -> fullHeight }, // 위에서 아래로
+                        targetOffsetY = { fullHeight -> fullHeight },
                         animationSpec = tween(400)
                     ) + fadeOut()
                 }

@@ -36,4 +36,8 @@ class PreferenceManager(context: Context) {
     var editCount: Int
         get() = prefs.getInt("edit_count", 0)
         set(value) = prefs.edit().putInt("edit_count", value).apply()
+
+    var isFirstRun: Boolean
+        get() = prefs.getBoolean("is_first_run", true)
+        set(value) = prefs.edit().putBoolean("is_first_run", value).apply()
 }

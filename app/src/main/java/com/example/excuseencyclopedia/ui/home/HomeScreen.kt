@@ -1,16 +1,18 @@
 package com.example.excuseencyclopedia.ui.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Star
@@ -20,11 +22,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.excuseencyclopedia.data.Excuse
+import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
 import com.kizitonwose.calendar.compose.WeekCalendar
 import com.kizitonwose.calendar.compose.weekcalendar.rememberWeekCalendarState
@@ -63,7 +67,7 @@ fun HomeScreen(
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 1. 헤더
+            // 1. 헤더 (2025년 12월 v)
             YearMonthHeader(
                 currentDate = homeUiState.selectedDate,
                 onHeaderClick = { showDatePicker = true }
@@ -79,7 +83,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. 리스트
+            // 3. 리스트 (광고 포함)
             HomeBody(
                 excuseList = homeUiState.excuseList,
                 onDeleteClick = { excuseToDelete = it },
@@ -106,17 +110,15 @@ fun HomeScreen(
         )
     }
 
-    // 날짜 선택 팝업
+    // 날짜 선택 팝업 (미래 날짜 차단 적용)
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = homeUiState.selectedDate
                 .atStartOfDay(ZoneId.systemDefault())
                 .toInstant()
                 .toEpochMilli(),
-            // ★ 핵심 1: 미래 날짜 선택 불가 설정 (SelectableDates)
             selectableDates = object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    // 오늘까지만 선택 가능 (내일부턴 false)
                     return utcTimeMillis <= System.currentTimeMillis()
                 }
             }
@@ -169,7 +171,7 @@ fun WeekCalendarSection(
     selectedDate: LocalDate,
     onDateSelected: (LocalDate) -> Unit
 ) {
-    val currentDate = remember { LocalDate.now() } // 오늘 날짜
+    val currentDate = remember { LocalDate.now() }
     val startDate = remember { currentDate.minusDays(500) }
     val endDate = remember { currentDate.plusDays(500) }
 
@@ -184,15 +186,13 @@ fun WeekCalendarSection(
     WeekCalendar(
         state = state,
         dayContent = { day ->
-            // ★ 핵심 2: 미래 날짜인지 확인
             val isFuture = day.date.isAfter(currentDate)
 
             DayItem(
                 day = day,
                 isSelected = selectedDate == day.date,
-                isFuture = isFuture, // 미래 여부 전달
+                isFuture = isFuture,
                 onClick = {
-                    // ★ 핵심 3: 미래가 아닐 때만 클릭 허용
                     if (!isFuture) {
                         onDateSelected(it.date)
                     }
@@ -206,11 +206,10 @@ fun WeekCalendarSection(
 fun DayItem(
     day: WeekDay,
     isSelected: Boolean,
-    isFuture: Boolean, // 추가됨
+    isFuture: Boolean,
     onClick: (WeekDay) -> Unit
 ) {
     val backgroundColor = if (isSelected) PurpleMain else Color.White
-    // 미래 날짜면 연한 회색 글씨, 아니면 검정/흰색
     val contentColor = if (isSelected) Color.White else if (isFuture) Color.LightGray else Color.Black
     val elevation = if (isSelected) 8.dp else 2.dp
 
@@ -219,7 +218,7 @@ fun DayItem(
             .padding(horizontal = 4.dp, vertical = 4.dp)
             .width(48.dp)
             .height(70.dp)
-            .clickable(enabled = !isFuture) { onClick(day) }, // 미래 날짜 클릭 방지
+            .clickable(enabled = !isFuture) { onClick(day) },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = elevation)
@@ -251,6 +250,10 @@ fun HomeBody(
     onDeleteClick: (Excuse) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val prefs = remember { PreferenceManager(context) }
+    val isPremium = prefs.isPremium
+
     if (excuseList.isEmpty()) {
         Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(text = "오늘 안 한 일과 변명을 기록해 보세요.", color = Color.Gray)
@@ -261,8 +264,87 @@ fun HomeBody(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-            items(excuseList, key = { it.id }) { excuse ->
+            itemsIndexed(items = excuseList, key = { _, item -> item.id }) { index, excuse ->
+
                 ExcuseItemCard(excuse = excuse, onDeleteClick = onDeleteClick)
+
+                // 광고 삽입 로직
+                if (!isPremium && (index == 2 || (index > 2 && (index - 2) % 5 == 0))) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    NativeAdCard()
+                }
+            }
+        }
+    }
+}
+
+// ★ [수정됨] 색상 오류 해결
+@Composable
+fun NativeAdCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(130.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFFFD54F))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Ad Info",
+                    // ★ 여기가 수정됨: Color.Orange -> Color(0xFFFF9800)
+                    tint = Color(0xFFFF9800),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.weight(1f)
+            ) {
+                Surface(
+                    color = Color(0xFFFF6F00),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "광고",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "변명이 떠오르지 않을 땐?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                Text(
+                    text = "프리미엄 구독으로 광고를 제거하세요!",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.DarkGray,
+                    maxLines = 2
+                )
             }
         }
     }

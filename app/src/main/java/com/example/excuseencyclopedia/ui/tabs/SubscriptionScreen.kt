@@ -98,7 +98,6 @@ fun SubscriptionScreen(
             BenefitItem("모든 광고 완벽 제거 🚫")
             BenefitItem("나만의 업적 도감 잠금 해제 🏆")
             BenefitItem("월간/연간 프리미엄 리포트 제공 📊")
-            BenefitItem("무제한 변명 기록 저장 💾")
 
             Spacer(modifier = Modifier.height(30.dp))
 

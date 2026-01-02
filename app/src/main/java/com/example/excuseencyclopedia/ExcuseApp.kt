@@ -52,7 +52,7 @@ import com.example.excuseencyclopedia.ui.tabs.AchievementsScreen
 import com.example.excuseencyclopedia.ui.tabs.CalendarScreen
 import com.example.excuseencyclopedia.ui.tabs.SettingsScreen
 import com.example.excuseencyclopedia.ui.tabs.StatsScreen
-import com.example.excuseencyclopedia.ui.tabs.SubscriptionScreen // ★ import 확인
+import com.example.excuseencyclopedia.ui.tabs.SubscriptionScreen
 
 // 1. 하단 탭 메뉴 정의
 enum class BottomNavItem(
@@ -69,7 +69,7 @@ enum class BottomNavItem(
 object Routes {
     const val Entry = "entry"
     const val Achievements = "achievements"
-    const val Subscription = "subscription" // ★ 구독 화면 경로 추가
+    const val Subscription = "subscription"
 }
 
 // 디자인 컬러 정의
@@ -83,14 +83,13 @@ fun ExcuseApp(
     val currentDestination = navBackStackEntry?.destination
     val currentRoute = currentDestination?.route
 
-    // 기록 화면일 때는 하단 바 숨김
+    // 기록 화면(Entry)일 때는 하단 바 숨김
     val showBottomBar = currentRoute != Routes.Entry
 
     // 뒤로가기 2번 눌러 종료하기 로직
     val context = LocalContext.current
     var backPressedTime by remember { mutableLongStateOf(0L) }
 
-    // 메인 탭 화면들 정의
     val rootRoutes = BottomNavItem.entries.map { it.route }
     val isRootScreen = currentRoute in rootRoutes
 
@@ -107,6 +106,7 @@ fun ExcuseApp(
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
+                // ★ 배너 광고 제거됨 -> 깔끔한 원래 디자인 복귀
                 BottomAppBar(
                     containerColor = Color.White,
                     tonalElevation = 10.dp,
@@ -145,13 +145,12 @@ fun ExcuseApp(
                             .fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
+                        // 현재 Entry 화면이 아닐 때만 버튼 활성화 느낌 (실제로는 항상 떠 있음)
                         val isEntryScreen = currentDestination?.route == Routes.Entry
 
                         FloatingActionButton(
                             onClick = {
-                                if (!isEntryScreen) {
-                                    navController.navigate(Routes.Entry)
-                                }
+                                if (!isEntryScreen) navController.navigate(Routes.Entry)
                             },
                             containerColor = if (isEntryScreen) Color.Gray else PurpleMain,
                             contentColor = Color.White,
@@ -192,11 +191,11 @@ fun ExcuseApp(
             navController = navController,
             startDestination = BottomNavItem.Record.route,
             modifier = Modifier.padding(innerPadding),
-            // 기본 애니메이션 (탭 전환)
+            // 기본 애니메이션 (탭 간 이동: 페이드)
             enterTransition = { fadeIn(animationSpec = tween(300)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
-            // 1. 기록 (홈)
+            // 1. 기록 (홈) - 네이티브 광고는 여기서 처리함
             composable(BottomNavItem.Record.route) { HomeScreen() }
 
             // 2. 캘린더
@@ -205,11 +204,10 @@ fun ExcuseApp(
             // 3. 통계
             composable(BottomNavItem.Stats.route) { StatsScreen() }
 
-            // 4. 설정 (★ 업데이트됨)
+            // 4. 설정
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
                     onAchievementsClick = { navController.navigate(Routes.Achievements) },
-                    // ★ 구독 관리 화면 연결
                     onManageSubscriptionClick = { navController.navigate(Routes.Subscription) }
                 )
             }
@@ -219,13 +217,13 @@ fun ExcuseApp(
                 route = Routes.Entry,
                 enterTransition = {
                     slideInVertically(
-                        initialOffsetY = { fullHeight -> fullHeight },
+                        initialOffsetY = { fullHeight -> fullHeight }, // 아래에서 위로
                         animationSpec = tween(400)
                     ) + fadeIn()
                 },
                 popExitTransition = {
                     slideOutVertically(
-                        targetOffsetY = { fullHeight -> fullHeight },
+                        targetOffsetY = { fullHeight -> fullHeight }, // 위에서 아래로
                         animationSpec = tween(400)
                     ) + fadeOut()
                 }
@@ -238,7 +236,7 @@ fun ExcuseApp(
                 AchievementsScreen(navigateBack = { navController.popBackStack() })
             }
 
-            // 7. [NEW] 구독 관리 화면 (★ 새로 추가됨)
+            // 7. 구독 관리 화면
             composable(Routes.Subscription) {
                 SubscriptionScreen(navigateBack = { navController.popBackStack() })
             }

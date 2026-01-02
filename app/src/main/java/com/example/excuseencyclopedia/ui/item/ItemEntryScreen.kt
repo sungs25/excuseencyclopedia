@@ -59,7 +59,7 @@ fun ItemEntryScreen(
     val prefs = remember { PreferenceManager(context) }
     val adHelper = remember { AdMobHelper(context) }
 
-    // ★ 리뷰 팝업 표시 여부를 제어하는 상태 변수
+    // 리뷰 팝업 표시 여부를 제어하는 상태 변수
     var showReviewDialog by remember { mutableStateOf(false) }
 
     // 화면 진입 시 광고 미리 로드
@@ -128,7 +128,9 @@ fun ItemEntryScreen(
                 }
             )
 
+            // 빈 공간 채우기 (화면 아래로 밀어내기)
             Spacer(modifier = Modifier.weight(1f))
+
 
             // 6. 저장 버튼
             Button(
@@ -137,23 +139,24 @@ fun ItemEntryScreen(
                         // (1) 데이터 저장
                         viewModel.saveItem()
 
-                        // (2) 누적 저장 횟수 증가
+                        // (2) 누적 저장 횟수 증가 (리뷰용)
                         val newTotalCount = prefs.totalSaveCount + 1
                         prefs.totalSaveCount = newTotalCount
 
-
-
                         // (3) 리뷰 요청 조건 체크
-                        // 조건: 정확히 10번째 저장이고 && 아직 리뷰 요청(도장)을 안 받았다면
                         if (newTotalCount == 10 && !prefs.isReviewRequested) {
-                            // ★ 바로 API를 부르지 않고, 우리가 만든 팝업(Dialog)을 먼저 띄움
                             showReviewDialog = true
                         } else {
-                            // (4) 리뷰 대상이 아니면 -> 광고 로직 실행
-                            if (prefs.shouldShowAd()) {
+                            // (4) 광고 로직 (안정적인 버전)
+                            val isAdDue = prefs.checkAdCount()    // 3번째 순서인가?
+                            val isAdReady = adHelper.isAdLoaded() // 광고가 준비되었나?
+
+                            // 순서도 되었고, 광고도 준비되었을 때만!
+                            if (isAdDue && isAdReady) {
+                                prefs.resetAdCount() // 초기화
+
                                 val activity = context as? Activity
                                 if (activity != null) {
-                                    // 광고 보여주고 -> 닫히면 뒤로가기
                                     adHelper.showAd(activity) {
                                         navigateBack()
                                     }
@@ -161,7 +164,6 @@ fun ItemEntryScreen(
                                     navigateBack()
                                 }
                             } else {
-                                // 광고 대상도 아니면 그냥 뒤로가기
                                 navigateBack()
                             }
                         }
@@ -187,57 +189,39 @@ fun ItemEntryScreen(
         }
     }
 
-    // ★★★ [리뷰 요청 팝업] 10번째 저장 시에만 나타남 ★★★
+    // 리뷰 요청 팝업
     if (showReviewDialog) {
         AlertDialog(
             onDismissRequest = {
-                // 바깥 부분 터치 시: 창 닫고 그냥 홈으로 이동
                 showReviewDialog = false
                 navigateBack()
             },
-            title = {
-                Text(
-                    text = "🎉 축하합니다!",
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(text = "벌써 10번째 변명을 기록하셨네요!\n꾸준한 기록에 박수를 보냅니다. 👏\n\n잠시 시간을 내어 앱을 평가해 주실 수 있나요?")
-            },
+            title = { Text("🎉 축하합니다!", fontWeight = FontWeight.Bold) },
+            text = { Text("벌써 10번째 변명을 기록하셨네요!\n잠시 시간을 내어 앱을 평가해 주실 수 있나요?") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // 1. "좋아요" 선택 -> 도장 찍고(true) 구글 리뷰 호출
                         prefs.isReviewRequested = true
                         showInAppReview(context)
-
                         showReviewDialog = false
-                        navigateBack() // 홈으로 이동
+                        navigateBack()
                     }
-                ) {
-                    Text("좋아요", color = PurpleMain, fontWeight = FontWeight.Bold)
-                }
+                ) { Text("좋아요", color = PurpleMain, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(
                     onClick = {
-                        // 2. "나중에" 선택 -> 도장 찍고(true) 그냥 종료
-                        // (여기서 true로 하면 다시는 안 물어봄. 계속 물어보려면 이 줄 삭제)
                         prefs.isReviewRequested = true
-
                         showReviewDialog = false
-                        navigateBack() // 홈으로 이동
+                        navigateBack()
                     }
-                ) {
-                    Text("나중에", color = Color.Gray)
-                }
+                ) { Text("나중에", color = Color.Gray) }
             },
             containerColor = Color.White,
             shape = RoundedCornerShape(16.dp)
         )
     }
 }
-
 
 // --- 아래는 UI 컴포넌트들 (기존과 동일) ---
 

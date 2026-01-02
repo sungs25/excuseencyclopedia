@@ -48,6 +48,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.OnboardingScreen
+import com.example.excuseencyclopedia.ui.SplashScreen // ★ Import 확인
 import com.example.excuseencyclopedia.ui.home.HomeScreen
 import com.example.excuseencyclopedia.ui.item.ItemEntryScreen
 import com.example.excuseencyclopedia.ui.tabs.AchievementsScreen
@@ -56,7 +57,6 @@ import com.example.excuseencyclopedia.ui.tabs.SettingsScreen
 import com.example.excuseencyclopedia.ui.tabs.StatsScreen
 import com.example.excuseencyclopedia.ui.tabs.SubscriptionScreen
 
-// 1. 하단 탭 메뉴 정의
 enum class BottomNavItem(
     val route: String,
     val title: String,
@@ -69,13 +69,13 @@ enum class BottomNavItem(
 }
 
 object Routes {
-    const val Onboarding = "onboarding" // ★ 온보딩 경로 추가
+    const val Splash = "splash" // ★ 스플래시 경로 추가
+    const val Onboarding = "onboarding"
     const val Entry = "entry"
     const val Achievements = "achievements"
     const val Subscription = "subscription"
 }
 
-// 디자인 컬러 정의
 val PurpleMain = Color(0xFF6C63FF)
 
 @Composable
@@ -86,23 +86,20 @@ fun ExcuseApp(
     val currentDestination = navBackStackEntry?.destination
     val currentRoute = currentDestination?.route
 
-    // Context & Prefs (첫 실행 여부 확인용)
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
 
-    // ★ 시작 화면 결정 로직
-    // 처음 실행이면 Onboarding, 아니면 홈(Record) 화면으로 시작
-    val startDestination = if (prefs.isFirstRun) Routes.Onboarding else BottomNavItem.Record.route
+    // ★ 시작 화면은 무조건 Splash
+    val startDestination = Routes.Splash
 
-    // 하단 바 숨김 조건 (기록 입력 화면 OR 온보딩 화면일 때 숨김)
-    val showBottomBar = currentRoute != Routes.Entry && currentRoute != Routes.Onboarding
+    // 하단 바 숨김 조건 (기록 입력, 온보딩, 스플래시 화면일 때 숨김)
+    val showBottomBar = currentRoute != Routes.Entry &&
+            currentRoute != Routes.Onboarding &&
+            currentRoute != Routes.Splash
 
-    // 뒤로가기 2번 눌러 종료하기 로직
     var backPressedTime by remember { mutableLongStateOf(0L) }
 
     val rootRoutes = BottomNavItem.entries.map { it.route }
-    // 온보딩 화면도 루트 화면처럼 취급할지는 선택이지만, 보통 온보딩에선 종료 안 시킴.
-    // 여기서는 탭 메뉴 화면들(홈, 캘린더 등)에서만 종료 로직 동작하게 유지
     val isRootScreen = currentRoute in rootRoutes
 
     BackHandler(enabled = isRootScreen) {
@@ -126,7 +123,6 @@ fun ExcuseApp(
                     // [왼쪽 2개 아이콘]
                     BottomNavItem.entries.take(2).forEach { screen ->
                         val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
-
                         NavigationBarItem(
                             selected = isSelected,
                             onClick = {
@@ -149,19 +145,14 @@ fun ExcuseApp(
                         )
                     }
 
-                    // [가운데: 안 한 일 기록 버튼]
+                    // [가운데: + 버튼]
                     Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
                         val isEntryScreen = currentDestination?.route == Routes.Entry
-
                         FloatingActionButton(
-                            onClick = {
-                                if (!isEntryScreen) navController.navigate(Routes.Entry)
-                            },
+                            onClick = { if (!isEntryScreen) navController.navigate(Routes.Entry) },
                             containerColor = if (isEntryScreen) Color.Gray else PurpleMain,
                             contentColor = Color.White,
                             shape = CircleShape,
@@ -175,7 +166,6 @@ fun ExcuseApp(
                     // [오른쪽 2개 아이콘]
                     BottomNavItem.entries.takeLast(2).forEach { screen ->
                         val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
-
                         NavigationBarItem(
                             selected = isSelected,
                             onClick = {
@@ -199,16 +189,30 @@ fun ExcuseApp(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = startDestination, // ★ 변수로 변경됨
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
             enterTransition = { fadeIn(animationSpec = tween(300)) },
             exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
-            // ★ [NEW] 온보딩 화면 추가
+            // ★ [NEW] 0. 스플래시 화면
+            composable(Routes.Splash) {
+                SplashScreen(
+                    onTimeout = {
+                        // 스플래시가 끝나면 첫 실행 여부에 따라 이동
+                        val nextScreen = if (prefs.isFirstRun) Routes.Onboarding else BottomNavItem.Record.route
+
+                        navController.navigate(nextScreen) {
+                            // 뒤로가기 눌러서 스플래시로 돌아오지 못하게 제거
+                            popUpTo(Routes.Splash) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // 1. 온보딩
             composable(Routes.Onboarding) {
                 OnboardingScreen(
                     onFinished = {
-                        // 온보딩 완료 시 홈으로 이동하고, 뒤로가기 스택에서 온보딩 제거
                         navController.navigate(BottomNavItem.Record.route) {
                             popUpTo(Routes.Onboarding) { inclusive = true }
                         }
@@ -216,16 +220,16 @@ fun ExcuseApp(
                 )
             }
 
-            // 1. 기록 (홈)
+            // 2. 홈 (기록)
             composable(BottomNavItem.Record.route) { HomeScreen() }
 
-            // 2. 캘린더
+            // 3. 캘린더
             composable(BottomNavItem.Calendar.route) { CalendarScreen() }
 
-            // 3. 통계
+            // 4. 통계
             composable(BottomNavItem.Stats.route) { StatsScreen() }
 
-            // 4. 설정
+            // 5. 설정
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
                     onAchievementsClick = { navController.navigate(Routes.Achievements) },
@@ -233,31 +237,29 @@ fun ExcuseApp(
                 )
             }
 
-            // 5. 기록 입력
+            // 6. 기록 입력
             composable(
                 route = Routes.Entry,
                 enterTransition = {
                     slideInVertically(
-                        initialOffsetY = { fullHeight -> fullHeight },
-                        animationSpec = tween(400)
+                        initialOffsetY = { it }, animationSpec = tween(400)
                     ) + fadeIn()
                 },
                 popExitTransition = {
                     slideOutVertically(
-                        targetOffsetY = { fullHeight -> fullHeight },
-                        animationSpec = tween(400)
+                        targetOffsetY = { it }, animationSpec = tween(400)
                     ) + fadeOut()
                 }
             ) {
                 ItemEntryScreen(navigateBack = { navController.popBackStack() })
             }
 
-            // 6. 업적 도감
+            // 7. 업적 도감
             composable(Routes.Achievements) {
                 AchievementsScreen(navigateBack = { navController.popBackStack() })
             }
 
-            // 7. 구독 관리 화면
+            // 8. 구독 관리
             composable(Routes.Subscription) {
                 SubscriptionScreen(navigateBack = { navController.popBackStack() })
             }

@@ -28,10 +28,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.excuseencyclopedia.PurpleMain
+import com.example.excuseencyclopedia.ui.tabs.PurpleMain
 import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.AdMobHelper
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
+import com.example.excuseencyclopedia.ui.showInAppReview
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -41,7 +42,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-// 배경색 (StatsScreen, SettingsScreen과 통일)
+// 배경색
 val GrayBackground = Color(0xFFF6F7F9)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,12 +54,15 @@ fun ItemEntryScreen(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    // --- 광고 및 구독 관리 설정 ---
+    // --- 광고 및 설정 관리자 ---
     val context = LocalContext.current
     val prefs = remember { PreferenceManager(context) }
     val adHelper = remember { AdMobHelper(context) }
 
-    // 화면이 켜지면 광고를 미리 로딩해둡니다.
+    // ★ 리뷰 팝업 표시 여부를 제어하는 상태 변수
+    var showReviewDialog by remember { mutableStateOf(false) }
+
+    // 화면 진입 시 광고 미리 로드
     LaunchedEffect(Unit) {
         adHelper.loadAd()
     }
@@ -108,7 +112,7 @@ fun ItemEntryScreen(
                 singleLine = false
             )
 
-            // 4. 날짜 선택 (미래 날짜 방지 기능 포함)
+            // 4. 날짜 선택
             DateSelectorBox(
                 date = viewModel.itemUiState.date,
                 onDateSelected = { newDate ->
@@ -126,27 +130,38 @@ fun ItemEntryScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // 6. 저장 버튼 (여기에 광고 로직이 들어갑니다)
+            // 6. 저장 버튼
             Button(
                 onClick = {
                     coroutineScope.launch {
                         // (1) 데이터 저장
                         viewModel.saveItem()
 
-                        // (2) 광고를 보여줘야 하는 타이밍인지 확인 (3번째 기록인가?)
-                        if (prefs.shouldShowAd()) {
-                            val activity = context as? Activity
-                            if (activity != null) {
-                                // 3번째면 광고 띄우고 -> 닫으면 뒤로가기
-                                adHelper.showAd(activity) {
+                        // (2) 누적 저장 횟수 증가
+                        val newTotalCount = prefs.totalSaveCount + 1
+                        prefs.totalSaveCount = newTotalCount
+
+                        // (3) 리뷰 요청 조건 체크
+                        // 조건: 정확히 10번째 저장이고 && 아직 리뷰 요청(도장)을 안 받았다면
+                        if (newTotalCount == 10 && !prefs.isReviewRequested) {
+                            // ★ 바로 API를 부르지 않고, 우리가 만든 팝업(Dialog)을 먼저 띄움
+                            showReviewDialog = true
+                        } else {
+                            // (4) 리뷰 대상이 아니면 -> 광고 로직 실행
+                            if (prefs.shouldShowAd()) {
+                                val activity = context as? Activity
+                                if (activity != null) {
+                                    // 광고 보여주고 -> 닫히면 뒤로가기
+                                    adHelper.showAd(activity) {
+                                        navigateBack()
+                                    }
+                                } else {
                                     navigateBack()
                                 }
                             } else {
+                                // 광고 대상도 아니면 그냥 뒤로가기
                                 navigateBack()
                             }
-                        } else {
-                            // 아니면(또는 프리미엄이면) 바로 뒤로가기
-                            navigateBack()
                         }
                     }
                 },
@@ -169,9 +184,60 @@ fun ItemEntryScreen(
             }
         }
     }
+
+    // ★★★ [리뷰 요청 팝업] 10번째 저장 시에만 나타남 ★★★
+    if (showReviewDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                // 바깥 부분 터치 시: 창 닫고 그냥 홈으로 이동
+                showReviewDialog = false
+                navigateBack()
+            },
+            title = {
+                Text(
+                    text = "🎉 축하합니다!",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(text = "벌써 10번째 변명을 기록하셨네요!\n꾸준한 기록에 박수를 보냅니다. 👏\n\n잠시 시간을 내어 앱을 평가해 주실 수 있나요?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // 1. "좋아요" 선택 -> 도장 찍고(true) 구글 리뷰 호출
+                        prefs.isReviewRequested = true
+                        showInAppReview(context)
+
+                        showReviewDialog = false
+                        navigateBack() // 홈으로 이동
+                    }
+                ) {
+                    Text("좋아요", color = PurpleMain, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        // 2. "나중에" 선택 -> 도장 찍고(true) 그냥 종료
+                        // (여기서 true로 하면 다시는 안 물어봄. 계속 물어보려면 이 줄 삭제)
+                        prefs.isReviewRequested = true
+
+                        showReviewDialog = false
+                        navigateBack() // 홈으로 이동
+                    }
+                ) {
+                    Text("나중에", color = Color.Gray)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
 }
 
-// --- 아래는 UI 컴포넌트들입니다 ---
+
+// --- 아래는 UI 컴포넌트들 (기존과 동일) ---
 
 @Composable
 fun StyledTextField(
@@ -301,14 +367,11 @@ fun DateSelectorBox(
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             selectableDates = object : SelectableDates {
-                // 미래 날짜 선택 방지 로직 (오류 수정됨: isSelectableDate 사용)
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
                     val checkDate = Instant.ofEpochMilli(utcTimeMillis)
                         .atZone(ZoneId.of("UTC"))
                         .toLocalDate()
                     val today = LocalDate.now()
-
-                    // 오늘 포함, 과거만 선택 가능
                     return !checkDate.isAfter(today)
                 }
             }

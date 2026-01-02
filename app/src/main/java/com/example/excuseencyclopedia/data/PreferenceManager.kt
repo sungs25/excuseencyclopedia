@@ -11,6 +11,14 @@ class PreferenceManager(context: Context) {
         get() = prefs.getInt("save_count", 0)
         set(value) = prefs.edit().putInt("save_count", value).apply()
 
+    var totalSaveCount: Int
+        get() = prefs.getInt("total_save_count", 0)
+        set(value) = prefs.edit().putInt("total_save_count", value).apply()
+
+    var isReviewRequested: Boolean
+        get() = prefs.getBoolean("is_review_requested", false)
+        set(value) = prefs.edit().putBoolean("is_review_requested", value).apply()
+
     // 2. 구독 여부 (true면 프리미엄)
     // 실제 앱에서는 결제 서버와 연동하지만, 지금은 테스트용으로 기기에 저장합니다.
     var isPremium: Boolean

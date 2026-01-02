@@ -86,4 +86,5 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation("com.google.android.gms:play-services-ads:23.0.0")
     implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.google.android.play:review-ktx:2.0.1")
 }

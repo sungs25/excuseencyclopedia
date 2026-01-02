@@ -39,6 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.excuseencyclopedia.alarm.AlarmScheduler
 import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
+import com.example.excuseencyclopedia.ui.tabs.PurpleMain // 패키지 경로 주의 (기존 코드 따름)
 
 @Composable
 fun SettingsScreen(
@@ -60,7 +61,7 @@ fun SettingsScreen(
     // 구독 상태 확인
     val isPremium = prefs.isPremium
 
-    // --- ★ [1] 데이터 백업(내보내기) 런처 ---
+    // --- [1] 데이터 백업(내보내기) 런처 ---
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -72,7 +73,7 @@ fun SettingsScreen(
         }
     }
 
-    // --- ★ [2] 데이터 복원(가져오기) 런처 ---
+    // --- [2] 데이터 복원(가져오기) 런처 ---
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -195,7 +196,7 @@ fun SettingsScreen(
                 )
             }
 
-            // 3. ★ 데이터 관리 (백업/복원/초기화)
+            // 3. 데이터 관리 (백업/복원/초기화)
             SettingsGroupCard(title = "데이터 관리") {
                 // (1) 백업 (내보내기)
                 SettingsClickableItem(
@@ -203,7 +204,6 @@ fun SettingsScreen(
                     title = "데이터 백업하기 (내보내기)",
                     subtitle = "기록을 파일로 저장합니다.",
                     onClick = {
-                        // 파일 이름 미리 지정 (오늘 날짜 포함)
                         val fileName = "excuse_backup_${System.currentTimeMillis()}.json"
                         exportLauncher.launch(fileName)
                     },
@@ -220,7 +220,7 @@ fun SettingsScreen(
                     onClick = {
                         importLauncher.launch(arrayOf("application/json"))
                     },
-                    iconColor = Color(0xFF009688) // 청록색
+                    iconColor = Color(0xFF009688)
                 )
 
                 HorizontalDivider(color = Color(0xFFF6F7F9), thickness = 1.dp)
@@ -264,8 +264,17 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        // 1. DB 데이터 삭제
                         viewModel.clearAllData()
+
+                        // 2. 광고 카운트 초기화
                         prefs.saveCount = 0
+
+                        // 3. ★ [추가됨] 리뷰용 누적 카운트도 초기화
+                        prefs.totalSaveCount = 0
+
+                        // (주의: prefs.isReviewRequested = false 코드는 넣지 않습니다!)
+
                         Toast.makeText(context, "모든 기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
                         showDeleteDialog = false
                     }
@@ -281,7 +290,7 @@ fun SettingsScreen(
     }
 }
 
-// --- 하위 컴포넌트들 ---
+// --- 하위 컴포넌트들 (기존과 동일) ---
 
 @Composable
 fun SettingsGroupCard(

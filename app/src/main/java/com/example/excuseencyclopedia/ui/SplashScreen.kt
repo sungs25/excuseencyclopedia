@@ -83,7 +83,7 @@ fun SplashScreen(
 
             // 앱 이름
             Text(
-                text = "핑계 도감",
+                text = "변명 도감",
                 color = Color.White,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,

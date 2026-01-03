@@ -57,4 +57,8 @@ class PreferenceManager(context: Context) {
     var isFirstRun: Boolean
         get() = prefs.getBoolean("is_first_run", true)
         set(value) = prefs.edit().putBoolean("is_first_run", value).apply()
+
+    var isAlarmEnabled: Boolean
+        get() = prefs.getBoolean("is_alarm_enabled", false)
+        set(value) = prefs.edit().putBoolean("is_alarm_enabled", value).apply()
 }

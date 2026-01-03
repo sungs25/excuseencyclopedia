@@ -39,7 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.excuseencyclopedia.alarm.AlarmScheduler
 import com.example.excuseencyclopedia.data.PreferenceManager
 import com.example.excuseencyclopedia.ui.AppViewModelProvider
-import com.example.excuseencyclopedia.ui.tabs.PurpleMain // 패키지 경로 주의 (기존 코드 따름)
+import com.example.excuseencyclopedia.ui.tabs.PurpleMain
 
 @Composable
 fun SettingsScreen(
@@ -54,8 +54,10 @@ fun SettingsScreen(
     val alarmScheduler = remember { AlarmScheduler(context) }
     val prefs = remember { PreferenceManager(context) }
 
-    // 상태 관리
-    var isNotificationEnabled by remember { mutableStateOf(false) } // 실제 앱에선 prefs에서 읽어오게 수정 권장
+    // ★ [수정] 앱 켤 때 저장된 설정값 불러오기 (기본값 false가 아님)
+    // PreferenceManager에 isAlarmEnabled가 없으면 빨간줄이 뜹니다. 꼭 추가해주세요!
+    var isNotificationEnabled by remember { mutableStateOf(prefs.isAlarmEnabled) }
+
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     // 구독 상태 확인
@@ -90,10 +92,15 @@ fun SettingsScreen(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
             if (isGranted) {
+                // 권한 허용됨 -> 저장하고 알람 켜기
                 isNotificationEnabled = true
+                prefs.isAlarmEnabled = true // ★ 저장
                 alarmScheduler.scheduleDailyAlarm()
                 Toast.makeText(context, "매일 밤 9시에 알림이 울립니다.", Toast.LENGTH_SHORT).show()
             } else {
+                // 권한 거부됨 -> 저장하지 않고 스위치 끄기
+                isNotificationEnabled = false
+                prefs.isAlarmEnabled = false // ★ 저장
                 Toast.makeText(context, "알림 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
             }
         }
@@ -170,6 +177,7 @@ fun SettingsScreen(
                     checked = isNotificationEnabled,
                     onCheckedChange = { shouldEnable ->
                         if (shouldEnable) {
+                            // 켜려고 할 때
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 val hasPermission = ContextCompat.checkSelfPermission(
                                     context, Manifest.permission.POST_NOTIFICATIONS
@@ -177,18 +185,24 @@ fun SettingsScreen(
 
                                 if (hasPermission) {
                                     isNotificationEnabled = true
+                                    prefs.isAlarmEnabled = true // ★ 저장
                                     alarmScheduler.scheduleDailyAlarm()
                                     Toast.makeText(context, "매일 밤 9시에 알림이 울립니다.", Toast.LENGTH_SHORT).show()
                                 } else {
+                                    // 권한 없으면 요청 (결과는 위쪽 permissionLauncher에서 처리)
                                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 }
                             } else {
+                                // 안드로이드 13 미만은 권한 필요 없음
                                 isNotificationEnabled = true
+                                prefs.isAlarmEnabled = true // ★ 저장
                                 alarmScheduler.scheduleDailyAlarm()
                                 Toast.makeText(context, "매일 밤 9시에 알림이 울립니다.", Toast.LENGTH_SHORT).show()
                             }
                         } else {
+                            // 끄려고 할 때
                             isNotificationEnabled = false
+                            prefs.isAlarmEnabled = false // ★ 저장
                             alarmScheduler.cancelDailyAlarm()
                             Toast.makeText(context, "알림이 해제되었습니다.", Toast.LENGTH_SHORT).show()
                         }
@@ -270,10 +284,13 @@ fun SettingsScreen(
                         // 2. 광고 카운트 초기화
                         prefs.saveCount = 0
 
-                        // 3. ★ [추가됨] 리뷰용 누적 카운트도 초기화
+                        // 3. 리뷰용 누적 카운트도 초기화
                         prefs.totalSaveCount = 0
 
-                        // (주의: prefs.isReviewRequested = false 코드는 넣지 않습니다!)
+                        // ★ 알람도 끄고 싶으면 여기서 처리 (선택사항)
+                        // prefs.isAlarmEnabled = false
+                        // alarmScheduler.cancelDailyAlarm()
+                        // isNotificationEnabled = false
 
                         Toast.makeText(context, "모든 기록이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
                         showDeleteDialog = false
